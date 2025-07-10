@@ -60,8 +60,8 @@ const GanttChart: React.FC<GanttChartProps> = ({
 
   // Prepare data for the chart
   const ganttTasks: GanttTask[] = useMemo(() => jobs
-    .filter(job => job.job_start && job.job_end)
-    .map(job => {
+    .filter((job: Job) => job.job_start && job.job_end)
+    .map((job: Job) => {
         let hash = 0;
         for (let i = 0; i < job.id.length; i++) {
           hash = job.id.charCodeAt(i) + ((hash << 5) - hash);
@@ -85,10 +85,10 @@ const GanttChart: React.FC<GanttChartProps> = ({
 
   // Scales
   const xScale = useMemo(() => {
-    const allDates = ganttTasks.flatMap(task => [task.start, task.end]);
+    const allDates = ganttTasks.flatMap((task: GanttTask) => [task.start, task.end]);
     if (allDates.length === 0) return scaleTime({ domain: [new Date(), new Date()], range: [0, xMax] });
-    const minDate = new Date(Math.min(...allDates.map(d => d.getTime())));
-    const maxDate = new Date(Math.max(...allDates.map(d => d.getTime())));
+    const minDate = new Date(Math.min(...allDates.map((d: Date) => d.getTime())));
+    const maxDate = new Date(Math.max(...allDates.map((d: Date) => d.getTime())));
     
     // Add some padding to the time range
     minDate.setDate(minDate.getDate() - 2);
@@ -103,7 +103,7 @@ const GanttChart: React.FC<GanttChartProps> = ({
 
   const yScale = useMemo(() => {
     return scaleBand<string>({
-      domain: ganttTasks.map(task => task.name),
+      domain: ganttTasks.map((task: GanttTask) => task.name),
       range: [0, yMax],
       padding: 0.4,
     });
@@ -112,11 +112,12 @@ const GanttChart: React.FC<GanttChartProps> = ({
   // Calculate the zoomed scale based on the transform matrix
   const zoomedXScale = useMemo(() => {
     const newScale = xScale.copy();
-    return newScale.domain(
-      newScale.range().map(r => 
+    newScale.domain(
+      newScale.range().map((r: number) => 
         newScale.invert((r - 0) / 1)
       )
     );
+    return newScale;
   }, [xScale]);
 
   // Calculate milliseconds per pixel for drag operations
@@ -256,7 +257,7 @@ const GanttChart: React.FC<GanttChartProps> = ({
         scaleXMin={0.5}
         scaleXMax={50}
       >
-        {(zoom) => {
+        {(zoom: any) => {
           return (
             <svg 
               width={width} 
@@ -288,7 +289,7 @@ const GanttChart: React.FC<GanttChartProps> = ({
                   })}
                 />
                 <Group clipPath="url(#clip)">
-                  {ganttTasks.map((task) => {
+                  {ganttTasks.map((task: GanttTask) => {
                     // If this task is currently being dragged, use the draggedTask state instead
                     // This is crucial for visual feedback during dragging
                     const renderTask = (draggedTask && draggedTask.id === task.id) ? draggedTask : task;
@@ -315,8 +316,8 @@ const GanttChart: React.FC<GanttChartProps> = ({
                           fill={task.color}
                           opacity={isDragging ? 0.7 : 1}
                           rx={4}
-                          onMouseDown={(event) => onMouseDown(event, task, 'move')}
-                          onMouseMove={(event) => {
+                          onMouseDown={(event: React.MouseEvent) => onMouseDown(event, task, 'move')}
+                          onMouseMove={(event: React.MouseEvent) => {
                             if (!dragOperation) {
                               const point = localPoint(event);
                               if (!point) return;
@@ -332,7 +333,6 @@ const GanttChart: React.FC<GanttChartProps> = ({
                           }}
                           style={{ cursor: 'grab', touchAction: 'none' }}
                         />
-                        
                         {/* Left resize handle */}
                         <Bar
                           key={`handle-start-${task.id}`}
@@ -342,7 +342,7 @@ const GanttChart: React.FC<GanttChartProps> = ({
                           height={barHeight}
                           fill="rgba(0,0,0,0.2)"
                           rx={2}
-                          onMouseDown={(event) => onMouseDown(event, task, 'resize-start')}
+                          onMouseDown={(event: React.MouseEvent) => onMouseDown(event, task, 'resize-start')}
                           style={{ cursor: 'ew-resize', touchAction: 'none' }}
                         />
                         
@@ -355,7 +355,7 @@ const GanttChart: React.FC<GanttChartProps> = ({
                           height={barHeight}
                           fill="rgba(0,0,0,0.2)"
                           rx={2}
-                          onMouseDown={(event) => onMouseDown(event, task, 'resize-end')}
+                          onMouseDown={(event: React.MouseEvent) => onMouseDown(event, task, 'resize-end')}
                           style={{ cursor: 'ew-resize', touchAction: 'none' }}
                         />
                       </Group>
@@ -368,7 +368,10 @@ const GanttChart: React.FC<GanttChartProps> = ({
                 scale={zoomedXScale}
                 stroke="#333"
                 tickStroke="#333"
-                tickFormat={(v) => `${(v as Date).getDate()}`}
+                tickFormat={(value) => {
+                  const date = value instanceof Date ? value : new Date(Number(value.valueOf()));
+                  return date.getDate().toString();
+                }}
                 tickLabelProps={() => ({ 
                   fill: '#333', 
                   fontSize: 11, 
@@ -379,7 +382,10 @@ const GanttChart: React.FC<GanttChartProps> = ({
               <AxisBottom
                 top={yMax + margin.top + 30}
                 scale={zoomedXScale}
-                tickFormat={(v) => new Intl.DateTimeFormat('en-US', { month: 'short' }).format(v as Date)}
+                tickFormat={(value) => {
+                  const date = value instanceof Date ? value : new Date(Number(value.valueOf()));
+                  return new Intl.DateTimeFormat('en-US', { month: 'short' }).format(date);
+                }}
                 stroke="#333"
                 tickStroke="#333"
                 tickLabelProps={() => ({ 
