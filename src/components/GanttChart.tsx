@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import type { Job } from '../types/job';
 import { Group } from '@visx/group';
-import { scaleBand, scaleTime } from '@visx/scale';
-import { GridRows, GridColumns } from '@visx/grid';
-import { AxisBottom, AxisLeft } from '@visx/axis';
+import { scaleTime } from '@visx/scale';
+import { GridColumns } from '@visx/grid';
+import { AxisBottom } from '@visx/axis';
 import { Bar } from '@visx/shape';
 import { useTooltip, useTooltipInPortal, defaultStyles } from '@visx/tooltip';
 import { localPoint } from '@visx/event';
@@ -15,6 +15,7 @@ interface GanttChartProps {
   width?: number;
   height?: number;
   onJobTimeUpdate?: (jobId: string, start: Date, end: Date) => void;
+  onJobClick?: (job: Job) => void;
 }
 
 interface GanttTask {
@@ -29,7 +30,7 @@ interface GanttTask {
 type DragOperation = 'move' | 'resize-start' | 'resize-end' | null;
 
 // Chart dimensions
-const margin = { top: 20, right: 40, bottom: 70, left: 150 };
+const margin = { top: 20, right: 60, bottom: 100, left: 60 };
 const DRAG_HANDLE_WIDTH = 8;
 
 const tooltipStyles = {
@@ -43,11 +44,15 @@ const tooltipStyles = {
 
 const GanttChart: React.FC<GanttChartProps> = ({ 
   jobs, 
-  width = 800, 
-  height = 500,
+  width: initialWidth = window.innerWidth - 32, // Default to window width minus padding
+  height = 300, // Reduced height since we only have one row
   onJobTimeUpdate = (jobId, start, end) => {
     // Default implementation logs the update
     console.log('Job time update:', { jobId, start: start.toISOString(), end: end.toISOString() });
+  },
+  onJobClick = (job) => {
+    // Default implementation logs the click
+    console.log('Job clicked:', job.id);
   }
 }) => {
   const { showTooltip, hideTooltip, tooltipData, tooltipLeft, tooltipTop } = useTooltip<GanttTask>();
@@ -56,7 +61,10 @@ const GanttChart: React.FC<GanttChartProps> = ({
   // State for tracking the task being dragged and the drag operation
   const [draggedTask, setDraggedTask] = useState<GanttTask | null>(null);
   const [dragOperation, setDragOperation] = useState<DragOperation>(null);
-  const [dragStartPosition, setDragStartPosition] = useState({ x: 0, startDate: new Date(), endDate: new Date() });
+  const [dragStartPosition, setDragStartPosition] = useState<{ x: number; startDate: Date; endDate: Date } | null>(null);
+  
+  // State for responsive width
+  const [width, setWidth] = useState(initialWidth);
 
   // Prepare data for the chart
   const ganttTasks: GanttTask[] = useMemo(() => jobs
@@ -81,7 +89,6 @@ const GanttChart: React.FC<GanttChartProps> = ({
 
   // Chart bounds
   const xMax = width - margin.left - margin.right;
-  const yMax = height - margin.top - margin.bottom;
 
   // Scales
   const xScale = useMemo(() => {
@@ -97,17 +104,11 @@ const GanttChart: React.FC<GanttChartProps> = ({
     return scaleTime<number>({
       domain: [minDate, maxDate],
       range: [0, xMax],
-      nice: true,
     });
   }, [ganttTasks, xMax]);
-
-  const yScale = useMemo(() => {
-    return scaleBand<string>({
-      domain: ganttTasks.map((task: GanttTask) => task.name),
-      range: [0, yMax],
-      padding: 0.4,
-    });
-  }, [ganttTasks, yMax]);
+  
+  // Calculate the row height for the single row
+  const rowHeight = 80; // Single fixed height for all bars to ensure enough space
 
   // Calculate the zoomed scale based on the transform matrix
   const zoomedXScale = useMemo(() => {
@@ -190,14 +191,24 @@ const GanttChart: React.FC<GanttChartProps> = ({
   }, [draggedTask, dragOperation, onJobTimeUpdate]);
 
   // Helper function to get cursor style based on drag operation
-  const getCursorStyle = (operation: DragOperation | null): string => {
+  const getCursorStyle = useCallback((operation: DragOperation): string => {
     switch (operation) {
       case 'move': return 'grabbing';
-      case 'resize-start': return 'w-resize';
-      case 'resize-end': return 'e-resize';
-      default: return 'grab';
+      case 'resize-start': 
+      case 'resize-end': return 'ew-resize';
+      default: return 'default';
     }
-  };
+  }, []);
+
+  // Handle window resize for responsiveness
+  useEffect(() => {
+    const handleResize = () => {
+      setWidth(window.innerWidth - 32); // Adjust width based on window size
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Global mouse event handlers for dragging - only added once when drag starts
   useEffect(() => {
@@ -250,7 +261,7 @@ const GanttChart: React.FC<GanttChartProps> = ({
   }, [handleDragStart]);
 
   return (
-    <div style={{ position: 'relative' }}>      
+    <div style={{ position: 'relative', width: '100%', overflowX: 'auto' }}>
       <Zoom<SVGSVGElement>
         width={width}
         height={height}
@@ -270,52 +281,41 @@ const GanttChart: React.FC<GanttChartProps> = ({
             >
               <defs>
                 <clipPath id="clip">
-                  <rect x={0} y={0} width={xMax} height={yMax} />
+                  <rect x={0} y={0} width={xMax} height={rowHeight} />
                 </clipPath>
               </defs>
               <rect x={0} y={0} width={width} height={height} fill="#fff" rx={14} />
               <Group left={margin.left} top={margin.top}>
-                <GridRows scale={yScale} width={xMax} stroke="#e0e0e0" />
-                <GridColumns scale={zoomedXScale} height={yMax} stroke="#e0e0e0" />
-                <AxisLeft
-                  scale={yScale}
-                  stroke="#333"
-                  tickStroke="#333"
-                  tickLabelProps={() => ({ 
-                    fill: '#333', 
-                    fontSize: 11, 
-                    textAnchor: 'end', 
-                    dy: '0.33em' 
-                  })}
-                />
+                <GridColumns scale={zoomedXScale} height={rowHeight} stroke="#e0e0e0" />
                 <Group clipPath="url(#clip)">
                   {ganttTasks.map((task: GanttTask) => {
                     // If this task is currently being dragged, use the draggedTask state instead
                     // This is crucial for visual feedback during dragging
                     const renderTask = (draggedTask && draggedTask.id === task.id) ? draggedTask : task;
                     
-                    const y = yScale(renderTask.name);
+                    const y = 0; // All tasks in a single row
                     const x = zoomedXScale(renderTask.start);
                     const barWidth = zoomedXScale(renderTask.end) - x;
-                    const barHeight = yScale.bandwidth();
+                    const barHeight = rowHeight;
 
-                    if (y === undefined || barWidth <= 0) return null;
+                    if (barWidth <= 0) return null;
                     
                     // Determine if this is the task being dragged
                     const isDragging = draggedTask && draggedTask.id === task.id;
                     
                     return (
                       <Group key={`bar-group-${task.id}`}>
-                        {/* Main task bar */}
+                        {/* Task drag handle (top portion) */}
                         <Bar
-                          key={`bar-${task.id}`}
+                          key={`drag-handle-${task.id}`}
                           x={x}
                           y={y}
                           width={barWidth}
-                          height={barHeight}
+                          height={10} // Height of the drag handle
                           fill={task.color}
                           opacity={isDragging ? 0.7 : 1}
-                          rx={4}
+                          rx={4} // rounded top corners
+                          ry={0} // square bottom corners
                           onMouseDown={(event: React.MouseEvent) => onMouseDown(event, task, 'move')}
                           onMouseMove={(event: React.MouseEvent) => {
                             if (!dragOperation) {
@@ -332,6 +332,39 @@ const GanttChart: React.FC<GanttChartProps> = ({
                             if (!dragOperation) hideTooltip();
                           }}
                           style={{ cursor: 'grab', touchAction: 'none' }}
+                        />
+                        
+                        {/* Main task bar (clickable body) */}
+                        <Bar
+                          key={`bar-${task.id}`}
+                          x={x}
+                          y={y + 10} // Position below the drag handle
+                          width={barWidth}
+                          height={barHeight - 10} // Reduce height to accommodate drag handle
+                          fill={task.color}
+                          opacity={isDragging ? 0.7 : 0.85} // Slightly lighter than the drag handle
+                          rx={0} // square top corners
+                          ry={4} // rounded bottom corners
+                          onClick={() => {
+                            // Find the original job object from jobs prop
+                            const jobObj = jobs.find(job => job.id === task.job_id);
+                            if (jobObj) onJobClick(jobObj);
+                          }}
+                          onMouseMove={(event: React.MouseEvent) => {
+                            if (!dragOperation) {
+                              const point = localPoint(event);
+                              if (!point) return;
+                              showTooltip({
+                                tooltipData: task,
+                                tooltipLeft: point.x,
+                                tooltipTop: point.y,
+                              });
+                            }
+                          }}
+                          onMouseLeave={() => {
+                            if (!dragOperation) hideTooltip();
+                          }}
+                          style={{ cursor: 'pointer', touchAction: 'none' }}
                         />
                         {/* Left resize handle */}
                         <Bar
@@ -363,8 +396,27 @@ const GanttChart: React.FC<GanttChartProps> = ({
                   })}
                 </Group>
               </Group>
+              {/* Hour level axis */}
               <AxisBottom
-                top={yMax + margin.top}
+                top={rowHeight + margin.top}
+                left={margin.left}
+                scale={zoomedXScale}
+                stroke="#333"
+                tickStroke="#333"
+                tickFormat={(value) => {
+                  const date = value instanceof Date ? value : new Date(Number(value.valueOf()));
+                  return date.getHours() + ':00';
+                }}
+                tickLabelProps={() => ({ 
+                  fill: '#333', 
+                  fontSize: 10, 
+                  textAnchor: 'middle' 
+                })}
+                numTicks={24}
+              />
+              {/* Day level axis */}
+              <AxisBottom
+                top={rowHeight + margin.top + 30}
                 left={margin.left}
                 scale={zoomedXScale}
                 stroke="#333"
@@ -381,7 +433,7 @@ const GanttChart: React.FC<GanttChartProps> = ({
               />
               {/* Month level axis */}
               <AxisBottom
-                top={yMax + margin.top + 30}
+                top={rowHeight + margin.top + 60}
                 left={margin.left}
                 scale={zoomedXScale}
                 tickFormat={(value) => {

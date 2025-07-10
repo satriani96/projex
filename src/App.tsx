@@ -226,7 +226,7 @@ function App() {
               </DragOverlay>
             </DndContext>
           ) : (
-            <GanttChart jobs={filteredJobs} onJobTimeUpdate={updateJobTime} />
+            <GanttChart jobs={filteredJobs} onJobTimeUpdate={updateJobTime} onJobClick={handleEditJob} />
           )
         )}
 
