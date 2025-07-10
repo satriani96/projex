@@ -8,7 +8,6 @@ import { Bar } from '@visx/shape';
 import { useTooltip, useTooltipInPortal, defaultStyles } from '@visx/tooltip';
 import { localPoint } from '@visx/event';
 import { Zoom } from '@visx/zoom';
-import type { TransformMatrix } from '@visx/zoom/lib/types';
 
 // Define interface for component props
 interface GanttChartProps {
@@ -110,24 +109,15 @@ const GanttChart: React.FC<GanttChartProps> = ({
     });
   }, [ganttTasks, yMax]);
 
-  const [transformMatrix, setTransformMatrix] = useState<TransformMatrix>({
-    scaleX: 1,
-    scaleY: 1,
-    translateX: 0,
-    translateY: 0,
-    skewX: 0,
-    skewY: 0
-  });
-
   // Calculate the zoomed scale based on the transform matrix
   const zoomedXScale = useMemo(() => {
     const newScale = xScale.copy();
     return newScale.domain(
       newScale.range().map(r => 
-        newScale.invert((r - transformMatrix.translateX) / transformMatrix.scaleX)
+        newScale.invert((r - 0) / 1)
       )
     );
-  }, [xScale, transformMatrix]);
+  }, [xScale]);
 
   // Calculate milliseconds per pixel for drag operations
   const msPerPixel = useMemo(() => {
@@ -161,7 +151,7 @@ const GanttChart: React.FC<GanttChartProps> = ({
     
     const deltaX = clientX - dragStartPosition.x;
     // Convert pixels to milliseconds based on the current scale
-    const deltaMs = deltaX * msPerPixel / transformMatrix.scaleX;
+    const deltaMs = deltaX * msPerPixel / 1;
     
     let newStart = new Date(dragStartPosition.startDate);
     let newEnd = new Date(dragStartPosition.endDate);
@@ -185,7 +175,7 @@ const GanttChart: React.FC<GanttChartProps> = ({
       start: newStart,
       end: newEnd
     });
-  }, [draggedTask, dragOperation, dragStartPosition, msPerPixel, transformMatrix.scaleX]);
+  }, [draggedTask, dragOperation, dragStartPosition, msPerPixel]);
 
   const handleDragEnd = useCallback(() => {
     // Only call onJobTimeUpdate when drag is complete
@@ -265,20 +255,6 @@ const GanttChart: React.FC<GanttChartProps> = ({
         height={height}
         scaleXMin={0.5}
         scaleXMax={50}
-        transformMatrix={transformMatrix}
-        setTransformMatrix={setTransformMatrix}
-        wheelDelta={event => {
-          // Don't zoom if we're dragging
-          if (dragOperation) {
-            event.preventDefault();
-            return false;
-          }
-          
-          // Let the default zoom behavior handle standard zoom
-          return event;
-        }}
-        // Disable zooming during drag operations
-        enabled={!dragOperation}
       >
         {(zoom) => {
           return (
