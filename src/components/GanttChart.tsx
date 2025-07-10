@@ -271,16 +271,11 @@ const GanttChart: React.FC<GanttChartProps> = ({
           // Don't zoom if we're dragging
           if (dragOperation) {
             event.preventDefault();
-            return { dx: 0, dy: 0, dz: 0 };
+            return false;
           }
           
-          // Handle standard zoom behavior
-          const { deltaY } = event;
-          return {
-            dx: 0,
-            dy: 0,
-            dz: deltaY * -0.01
-          };
+          // Let the default zoom behavior handle standard zoom
+          return event;
         }}
         // Disable zooming during drag operations
         enabled={!dragOperation}
