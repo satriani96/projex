@@ -56,3 +56,16 @@ export const updateJob = async (jobId: string, jobData: Partial<JobFormData>): P
 
   return data[0];
 };
+
+/**
+ * Deletes a job from the database.
+ * @param jobId - The ID of the job to delete.
+ */
+export const deleteJob = async (jobId: string): Promise<void> => {
+  const { error } = await supabase.from(TABLE_NAME).delete().eq('id', jobId);
+
+  if (error) {
+    console.error('Error deleting job:', error);
+    throw new Error(error.message);
+  }
+};

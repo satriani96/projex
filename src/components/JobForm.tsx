@@ -12,11 +12,12 @@ interface JobFormProps {
   onSubmit: (data: JobFormData) => void;
   onCancel: () => void;
   onSketchSave: (jobId: string, sketchData: string) => void;
+  onDelete?: (jobId: string) => void;
 }
 
 const statusOptions: JobStatus[] = ['queued', 'in_progress', 'on_hold', 'done'];
 
-const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave }) => {
+const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave, onDelete }) => {
   const [isSketchPadOpen, setIsSketchPadOpen] = useState(false);
   
   const [formData, setFormData] = useState<JobFormData>({
@@ -200,6 +201,27 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
               <path d="M16 18h4m-2 -2v4" />
             </svg>
           </button>
+          {job && onDelete && (
+            <button 
+              type="button" 
+              onClick={() => {
+                if (window.confirm('Are you sure you want to delete this job? This action cannot be undone.')) {
+                  job.id && onDelete(job.id);
+                }
+              }} 
+              title="Delete Job"
+              className="p-1 rounded-full text-red-500 hover:bg-red-50 hover:text-red-700"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                <path d="M4 7l16 0" />
+                <path d="M10 11l0 6" />
+                <path d="M14 11l0 6" />
+                <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" />
+                <path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
+              </svg>
+            </button>
+          )}
         </div>
         <button type="button" onClick={onCancel} className="p-1 rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600">
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -365,6 +365,7 @@ const GanttChart: React.FC<GanttChartProps> = ({
               </Group>
               <AxisBottom
                 top={yMax + margin.top}
+                left={margin.left}
                 scale={zoomedXScale}
                 stroke="#333"
                 tickStroke="#333"
@@ -381,6 +382,7 @@ const GanttChart: React.FC<GanttChartProps> = ({
               {/* Month level axis */}
               <AxisBottom
                 top={yMax + margin.top + 30}
+                left={margin.left}
                 scale={zoomedXScale}
                 tickFormat={(value) => {
                   const date = value instanceof Date ? value : new Date(Number(value.valueOf()));

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { DndContext, DragOverlay, DragStartEvent, DragEndEvent, closestCenter } from '@dnd-kit/core';
 import { Job, JobStatus, JobFormData } from './types/job';
-import { getJobs, createJob, updateJob } from './services/jobService';
+import { getJobs, createJob, updateJob, deleteJob } from './services/jobService';
 import JobForm from './components/JobForm';
 import KanbanBoard from './components/KanbanBoard';
 import JobCard from './components/JobCard';
@@ -159,6 +159,22 @@ function App() {
     setSelectedJob(null);
   };
 
+  const handleDeleteJob = async (jobId: string) => {
+    if (!window.confirm('Are you sure you want to delete this job? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await deleteJob(jobId);
+      fetchJobs(); // Re-fetch jobs to update the UI
+      setIsFormVisible(false);
+      setSelectedJob(null);
+    } catch (err) {
+      setError('Failed to delete job.');
+      console.error(err);
+    }
+  };
+
   return (
     <div className="h-screen bg-gray-50 text-gray-800 flex flex-col">
             <header className="flex justify-between items-center p-4 bg-white border-b border-gray-200 gap-4">
@@ -222,6 +238,7 @@ function App() {
                 onSubmit={handleFormSubmit}
                 onCancel={handleCancelForm}
                 onSketchSave={handleSketchSave}
+                onDelete={handleDeleteJob}
               />
             </div>
           </div>
