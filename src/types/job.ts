@@ -15,6 +15,8 @@ export interface Job {
   due_date: string | null;
   job_description: string;
   sketch_data: string | null; // Can be a base64 string or a URL from Supabase Storage
+  job_start: string | null;
+  job_end: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -33,4 +35,6 @@ export interface JobFormData {
   due_date: string | null;
   job_description: string;
   sketch_data: string | null;
+  job_start: string | null;
+  job_end: string | null;
 }

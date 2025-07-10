@@ -9,7 +9,7 @@ interface KanbanBoardProps {
   onJobClick: (job: Job) => void;
 }
 
-const statusOrder: JobStatus[] = ['queued', 'in_progress', 'on_hold', 'done'];
+const statusOrder: JobStatus[] = ['on_hold', 'queued', 'in_progress', 'done'];
 
 const KanbanBoard: React.FC<KanbanBoardProps> = ({ jobs, onJobClick }) => {
   const jobsByStatus = statusOrder.reduce((acc, status) => {

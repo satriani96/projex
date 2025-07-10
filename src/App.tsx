@@ -5,6 +5,7 @@ import { getJobs, createJob, updateJob } from './services/jobService';
 import JobForm from './components/JobForm';
 import KanbanBoard from './components/KanbanBoard';
 import JobCard from './components/JobCard';
+import GanttChart from './components/GanttChart';
 
 function App() {
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -14,6 +15,16 @@ function App() {
     const [selectedJob, setSelectedJob] = useState<Job | null>(null);
     const [activeJob, setActiveJob] = useState<Job | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'kanban' | 'gantt'>(() => {
+    // Initialize from localStorage, default to kanban if not found
+    const savedViewMode = localStorage.getItem('projex-view-mode');
+    return (savedViewMode === 'kanban' || savedViewMode === 'gantt') ? savedViewMode : 'kanban';
+  });
+  
+  // Save view mode to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('projex-view-mode', viewMode);
+  }, [viewMode]);
 
   const fetchJobs = useCallback(async () => {
     try {
@@ -52,6 +63,34 @@ function App() {
   const handleEditJob = (job: Job) => {
     setSelectedJob(job);
     setIsFormVisible(true);
+  };
+
+    const handleSketchSave = async (jobId: string, sketchData: string) => {
+    try {
+      await updateJob(jobId, { sketch_data: sketchData });
+      fetchJobs(); // Refresh data to ensure consistency
+    } catch (err) {
+      setError('Failed to save sketch.');
+      console.error(err);
+    }
+  };
+
+  const updateJobTime = async (jobId: string, start: Date, end: Date) => {
+    try {
+      await updateJob(jobId, { 
+        job_start: start.toISOString(), 
+        job_end: end.toISOString() 
+      });
+      // Optimistically update the local state
+      setJobs(prevJobs =>
+        prevJobs.map(job =>
+          job.id === jobId ? { ...job, job_start: start.toISOString(), job_end: end.toISOString() } : job
+        )
+      );
+    } catch (err) {
+      setError('Failed to update job time.');
+      console.error(err);
+    }
   };
 
     const handleFormSubmit = async (formData: JobFormData) => {
@@ -124,6 +163,20 @@ function App() {
     <div className="h-screen bg-gray-50 text-gray-800 flex flex-col">
             <header className="flex justify-between items-center p-4 bg-white border-b border-gray-200 gap-4">
         <h1 className="text-2xl font-bold text-gray-900">Projex</h1>
+        <div className="flex items-center gap-4">
+          <div className="bg-gray-200 p-1 rounded-md">
+            <button 
+              onClick={() => setViewMode('kanban')}
+              className={`px-3 py-1 text-sm font-medium rounded ${viewMode === 'kanban' ? 'bg-white text-blue-600 shadow' : 'bg-transparent text-gray-600'}`}>
+              Kanban
+            </button>
+            <button 
+              onClick={() => setViewMode('gantt')}
+              className={`px-3 py-1 text-sm font-medium rounded ${viewMode === 'gantt' ? 'bg-white text-blue-600 shadow' : 'bg-transparent text-gray-600'}`}>
+              Gantt
+            </button>
+          </div>
+        </div>
         <div className="flex-1 max-w-md">
           <input
             type="text"
@@ -142,19 +195,23 @@ function App() {
       </header>
       <main className="p-4 flex-1 overflow-y-auto relative">
         {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">{error}</div>}
-                {isLoading ? (
+        {isLoading ? (
           <div className="text-center text-gray-500">Loading jobs...</div>
         ) : (
-          <DndContext
-            collisionDetection={closestCenter}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-          >
-            <KanbanBoard jobs={filteredJobs} onJobClick={handleEditJob} />
-            <DragOverlay>
-              {activeJob ? <JobCard job={activeJob} onClick={() => {}} /> : null}
-            </DragOverlay>
-          </DndContext>
+          viewMode === 'kanban' ? (
+            <DndContext
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <KanbanBoard jobs={filteredJobs} onJobClick={handleEditJob} />
+              <DragOverlay>
+                {activeJob ? <JobCard job={activeJob} onClick={() => {}} /> : null}
+              </DragOverlay>
+            </DndContext>
+          ) : (
+            <GanttChart jobs={filteredJobs} onJobTimeUpdate={updateJobTime} />
+          )
         )}
 
         {isFormVisible && (
@@ -164,6 +221,7 @@ function App() {
                 job={selectedJob}
                 onSubmit={handleFormSubmit}
                 onCancel={handleCancelForm}
+                onSketchSave={handleSketchSave}
               />
             </div>
           </div>
