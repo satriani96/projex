@@ -16,7 +16,7 @@ function App() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [activeJob, setActiveJob] = useState<Job | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode] = useState<'kanban' | 'gantt'>(() => {
+  const [viewMode, setViewMode] = useState<'kanban' | 'gantt'>(() => {
     // Initialize from localStorage, default to kanban if not found
     const savedViewMode = localStorage.getItem('projex-view-mode');
     return (savedViewMode === 'kanban' || savedViewMode === 'gantt') ? savedViewMode : 'kanban';
@@ -199,6 +199,21 @@ function App() {
         <div className="flex items-center gap-3">
           <img src={logo} alt="Projex Logo" className="h-8 w-auto" />
           <h1 className="text-2xl font-bold text-gray-900">Projex</h1>
+          
+          <div className="flex rounded-md overflow-hidden border border-gray-300 ml-4">
+            <button 
+              onClick={() => setViewMode('kanban')} 
+              className={`px-3 py-1 text-sm ${viewMode === 'kanban' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+            >
+              Kanban
+            </button>
+            <button 
+              onClick={() => setViewMode('gantt')} 
+              className={`px-3 py-1 text-sm ${viewMode === 'gantt' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+            >
+              Gantt
+            </button>
+          </div>
         </div>
         <div className="flex-1 max-w-md">
           <input
