@@ -22,6 +22,7 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
   
   const [formData, setFormData] = useState<JobFormData>({
     customer_name: job?.customer_name || '',
+    company: job?.company || '',
     address: job?.address || '',
     phone_number: job?.phone_number || '',
     email: job?.email || '',
@@ -127,6 +128,7 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
                 <h2>Customer Details</h2>
                 <div class="details">
                   <p><strong>Customer:</strong> ${printData.customer_name}</p>
+                  <p><strong>Company:</strong> ${printData.company || 'N/A'}</p>
                   <p><strong>Phone:</strong> ${printData.phone_number || 'N/A'}</p>
                   <p><strong>Email:</strong> ${printData.email || 'N/A'}</p>
                   <p><strong>Address:</strong> ${printData.address || 'N/A'}</p>
@@ -238,6 +240,11 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
                 <div>
                   <label htmlFor="job_number" className="block text-sm font-medium text-gray-700 mb-1">Job Number</label>
                   <input type="text" id="job_number" name="job_number" value={job?.job_number || ''} className="px-3 py-2 text-sm block w-full border border-gray-300 rounded-md shadow-sm bg-gray-100" readOnly />
+                </div>
+                {/* Company */}
+                <div>
+                  <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-1">Company</label>
+                  <input id="company" name="company" value={formData.company} onChange={handleChange} placeholder="e.g., ABC Corporation" className="px-3 py-2 text-sm block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
                 </div>
                 {/* Customer Name */}
                 <div>

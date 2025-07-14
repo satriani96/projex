@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { DndContext, DragOverlay, DragStartEvent, DragEndEvent, closestCenter } from '@dnd-kit/core';
+import { DndContext, DragOverlay, DragStartEvent, DragEndEvent, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { Job, JobStatus, JobFormData } from './types/job';
 import { getJobs, createJob, updateJob, deleteJob } from './services/jobService';
 import JobForm from './components/JobForm';
@@ -216,6 +216,21 @@ function App() {
         ) : (
           viewMode === 'kanban' ? (
             <DndContext
+              sensors={useSensors(
+                useSensor(PointerSensor, {
+                  // Require the mouse to move by 10 pixels before activating
+                  activationConstraint: {
+                    distance: 10,
+                  },
+                }),
+                useSensor(TouchSensor, {
+                  // Press delay of 250ms, with tolerance of 5px of movement
+                  activationConstraint: {
+                    delay: 250,
+                    tolerance: 5,
+                  },
+                })
+              )}
               collisionDetection={closestCenter}
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
