@@ -11,6 +11,26 @@ interface JobCardProps {
 }
 
 const JobCard: React.FC<JobCardProps> = ({ job, onClick, cardSize = 'medium' }) => {
+  // Calculate days until due (or overdue)
+  const calculateDaysUntilDue = (): { days: number; isOverdue: boolean } | null => {
+    if (!job.due_date) return null;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time part to compare dates only
+    
+    const dueDate = new Date(job.due_date);
+    dueDate.setHours(0, 0, 0, 0);
+    
+    const diffTime = dueDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return {
+      days: Math.abs(diffDays),
+      isOverdue: diffDays < 0
+    };
+  };
+  
+  const daysUntilDue = calculateDaysUntilDue();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: String(job.id) });
 
   const style = {
@@ -40,10 +60,19 @@ const JobCard: React.FC<JobCardProps> = ({ job, onClick, cardSize = 'medium' }) 
       >
         {/* Compact view: just customer name and job number */}
         {cardSize === 'compact' && (
-          <div className="flex justify-between items-baseline">
-            <h4 className="font-semibold text-gray-800 truncate">{job.customer_name}</h4>
-            <span className="text-xs font-mono text-gray-500 ml-1">#{job.job_number}</span>
-          </div>
+          <>
+            <div className="flex justify-between items-baseline">
+              <h4 className="font-semibold text-gray-800 truncate">{job.customer_name}</h4>
+              <span className="text-xs font-mono text-gray-500 ml-1">#{job.job_number}</span>
+            </div>
+            {daysUntilDue && (
+              <div className={`text-xs mt-1 ${daysUntilDue.isOverdue ? 'text-red-600 font-semibold' : 'text-blue-600'}`}>
+                {daysUntilDue.isOverdue 
+                  ? `${daysUntilDue.days} ${daysUntilDue.days === 1 ? 'day' : 'days'} overdue` 
+                  : `${daysUntilDue.days} ${daysUntilDue.days === 1 ? 'day' : 'days'} until due`}
+              </div>
+            )}
+          </>
         )}
 
         {/* Medium view: current implementation */}
@@ -54,7 +83,16 @@ const JobCard: React.FC<JobCardProps> = ({ job, onClick, cardSize = 'medium' }) 
               <span className="text-xs font-mono text-gray-500">#{job.job_number}</span>
             </div>
             <p className="text-sm text-gray-600 truncate">{job.material}</p>
-            {job.due_date && <p className="text-xs text-gray-500 mt-2">Due: {job.due_date}</p>}
+            <div className="flex justify-between items-center mt-2">
+              {job.due_date && <span className="text-xs text-gray-500">Due: {job.due_date}</span>}
+              {daysUntilDue && (
+                <span className={`text-xs ${daysUntilDue.isOverdue ? 'text-red-600 font-semibold' : 'text-blue-600'}`}>
+                  {daysUntilDue.isOverdue 
+                    ? `${daysUntilDue.days} ${daysUntilDue.days === 1 ? 'day' : 'days'} overdue` 
+                    : `${daysUntilDue.days} ${daysUntilDue.days === 1 ? 'day' : 'days'} until due`}
+                </span>
+              )}
+            </div>
           </>
         )}
 
@@ -69,9 +107,19 @@ const JobCard: React.FC<JobCardProps> = ({ job, onClick, cardSize = 'medium' }) 
             <p className="text-sm text-gray-600 mb-1">Material: {job.material}</p>
             {/* Machine property removed as it doesn't exist in the Job interface */}
             {job.status && <p className="text-sm text-gray-600 mb-1">Status: {job.status}</p>}
-            <div className="flex justify-between text-xs text-gray-500 mt-2">
-              {job.job_start && <span>Start: {job.job_start}</span>}
-              {job.due_date && <span>Due: {job.due_date}</span>}
+            <div className="flex flex-wrap justify-between text-xs mt-2">
+              <div className="text-gray-500">
+                {job.job_start && <span>Start: {job.job_start}</span>}
+                {job.job_start && job.due_date && <span className="mx-1">|</span>}
+                {job.due_date && <span>Due: {job.due_date}</span>}
+              </div>
+              {daysUntilDue && (
+                <span className={`${daysUntilDue.isOverdue ? 'text-red-600 font-semibold' : 'text-blue-600'}`}>
+                  {daysUntilDue.isOverdue 
+                    ? `${daysUntilDue.days} ${daysUntilDue.days === 1 ? 'day' : 'days'} overdue` 
+                    : `${daysUntilDue.days} ${daysUntilDue.days === 1 ? 'day' : 'days'} until due`}
+                </span>
+              )}
             </div>
           </>
         )}

@@ -12,6 +12,16 @@ import logo from './assets/logo.jpg';
 // Card size type for job cards
 export type CardSize = 'compact' | 'medium' | 'large';
 
+// Sort field type for jobs in kanban columns
+export type SortField = 'job_number' | 'customer_name' | 'due_date';
+export type SortDirection = 'asc' | 'desc';
+
+// Define sort configuration for job columns
+export interface SortConfig {
+  field: SortField;
+  direction: SortDirection;
+}
+
 function App() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -21,6 +31,30 @@ function App() {
   const [activeJob, setActiveJob] = useState<Job | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
+  
+  // Sort configuration for each column (status)
+  const [sortConfig, setSortConfig] = useState<Record<JobStatus, SortConfig>>(() => {
+    // Initialize with defaults - job_number ascending for all columns
+    const defaultSort: Record<JobStatus, SortConfig> = {
+      queued: { field: 'job_number', direction: 'asc' },
+      in_progress: { field: 'job_number', direction: 'asc' },
+      on_hold: { field: 'job_number', direction: 'asc' },
+      done: { field: 'job_number', direction: 'asc' },
+      archived: { field: 'job_number', direction: 'asc' }
+    };
+    
+    // Try to load from localStorage if available
+    const savedConfig = localStorage.getItem('projex-sort-config');
+    if (savedConfig) {
+      try {
+        return JSON.parse(savedConfig);
+      } catch (e) {
+        console.error('Failed to parse saved sort config', e);
+      }
+    }
+    
+    return defaultSort;
+  });
   const [viewMode, setViewMode] = useState<'kanban' | 'gantt'>(() => {
     // Initialize from localStorage, default to kanban if not found
     const savedViewMode = localStorage.getItem('projex-view-mode');
@@ -44,6 +78,11 @@ function App() {
   useEffect(() => {
     localStorage.setItem('projex-card-size', cardSize);
   }, [cardSize]);
+  
+  // Save sort config to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('projex-sort-config', JSON.stringify(sortConfig));
+  }, [sortConfig]);
 
   const fetchJobs = useCallback(async () => {
     try {
@@ -300,7 +339,18 @@ function App() {
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
             >
-              <KanbanBoard jobs={filteredJobs} onJobClick={handleEditJob} cardSize={cardSize} />
+              <KanbanBoard 
+                jobs={filteredJobs} 
+                onJobClick={handleEditJob} 
+                cardSize={cardSize}
+                sortConfig={sortConfig}
+                onSortChange={(status, field, direction) => {
+                  setSortConfig(prev => ({
+                    ...prev,
+                    [status]: { field, direction }
+                  }));
+                }}
+              />
               <DragOverlay>
                 {activeJob ? <JobCard job={activeJob} onClick={() => {}} cardSize={cardSize} /> : null}
               </DragOverlay>
