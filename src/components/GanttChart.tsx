@@ -417,55 +417,7 @@ const GanttChart: React.FC<GanttChartProps> = ({
 
           return (
             <>
-              {/* Zoom Control Buttons */}
-              <div style={{
-                position: 'absolute',
-                top: '10px',
-                right: '10px',
-                zIndex: 10,
-                display: 'flex',
-                gap: '5px'
-              }}>
-                <button 
-                  onClick={() => zoom.reset()}
-                  style={{
-                    padding: '4px 8px',
-                    background: '#f0f0f0',
-                    border: '1px solid #ccc',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '14px'
-                  }}
-                >
-                  Reset
-                </button>
-                <button 
-                  onClick={() => zoom.scale({ scaleX: 1.2, center: { x: width / 2, y: height / 2 } })}
-                  style={{
-                    padding: '4px 8px',
-                    background: '#f0f0f0',
-                    border: '1px solid #ccc',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '14px'
-                  }}
-                >
-                  Zoom +
-                </button>
-                <button 
-                  onClick={() => zoom.scale({ scaleX: 0.8, center: { x: width / 2, y: height / 2 } })}
-                  style={{
-                    padding: '4px 8px',
-                    background: '#f0f0f0',
-                    border: '1px solid #ccc',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '14px'
-                  }}
-                >
-                  Zoom -
-                </button>
-              </div>
+              {/* Zoom controls removed as requested */}
               <svg 
                 ref={svgRef}
                 width={width} 
