@@ -3,15 +3,17 @@ import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import type { Job, JobStatus } from '../types/job';
 import JobCard from './JobCard';
+import { CardSize } from '../App';
 
 interface KanbanColumnProps {
   status: JobStatus;
   title: string;
   jobs: Job[];
   onJobClick: (job: Job) => void;
+  cardSize: CardSize;
 }
 
-const KanbanColumn: React.FC<KanbanColumnProps> = ({ status, title, jobs, onJobClick }) => {
+const KanbanColumn: React.FC<KanbanColumnProps> = ({ status, title, jobs, onJobClick, cardSize }) => {
   const { setNodeRef } = useDroppable({ id: status });
 
   const jobIds = useMemo(() => jobs.map(j => String(j.id)), [jobs]);
@@ -22,7 +24,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ status, title, jobs, onJobC
       <SortableContext id={status} items={jobIds} strategy={verticalListSortingStrategy}>
         <div className="space-y-3 min-h-[200px] flex-1 overflow-y-auto pr-2">
           {jobs.map(job => (
-            <JobCard key={job.id} job={job} onClick={() => onJobClick(job)} />
+            <JobCard key={job.id} job={job} onClick={() => onJobClick(job)} cardSize={cardSize} />
           ))}
         </div>
       </SortableContext>

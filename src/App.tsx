@@ -8,6 +8,9 @@ import JobCard from './components/JobCard';
 import GanttChart from './components/GanttChart';
 import logo from './assets/logo.jpg';
 
+// Card size type for job cards
+export type CardSize = 'compact' | 'medium' | 'large';
+
 function App() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -22,10 +25,23 @@ function App() {
     return (savedViewMode === 'kanban' || savedViewMode === 'gantt') ? savedViewMode : 'kanban';
   });
   
+  const [cardSize, setCardSize] = useState<CardSize>(() => {
+    // Initialize from localStorage, default to medium if not found
+    const savedCardSize = localStorage.getItem('projex-card-size');
+    return (savedCardSize === 'compact' || savedCardSize === 'medium' || savedCardSize === 'large') 
+      ? savedCardSize as CardSize 
+      : 'medium';
+  });
+  
   // Save view mode to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('projex-view-mode', viewMode);
   }, [viewMode]);
+  
+  // Save card size to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('projex-card-size', cardSize);
+  }, [cardSize]);
 
   const fetchJobs = useCallback(async () => {
     try {
@@ -214,6 +230,32 @@ function App() {
               Gantt
             </button>
           </div>
+          
+          {viewMode === 'kanban' && (
+            <div className="flex rounded-md overflow-hidden border border-gray-300 ml-4">
+              <button 
+                onClick={() => setCardSize('compact')} 
+                className={`px-3 py-1 text-sm ${cardSize === 'compact' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                title="Compact View"
+              >
+                <span className="text-xs">S</span>
+              </button>
+              <button 
+                onClick={() => setCardSize('medium')} 
+                className={`px-3 py-1 text-sm ${cardSize === 'medium' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                title="Medium View"
+              >
+                <span className="text-xs">M</span>
+              </button>
+              <button 
+                onClick={() => setCardSize('large')} 
+                className={`px-3 py-1 text-sm ${cardSize === 'large' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                title="Large View"
+              >
+                <span className="text-xs">L</span>
+              </button>
+            </div>
+          )}
         </div>
         <div className="flex-1 max-w-md">
           <input
@@ -243,9 +285,9 @@ function App() {
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
             >
-              <KanbanBoard jobs={filteredJobs} onJobClick={handleEditJob} />
+              <KanbanBoard jobs={filteredJobs} onJobClick={handleEditJob} cardSize={cardSize} />
               <DragOverlay>
-                {activeJob ? <JobCard job={activeJob} onClick={() => {}} /> : null}
+                {activeJob ? <JobCard job={activeJob} onClick={() => {}} cardSize={cardSize} /> : null}
               </DragOverlay>
             </DndContext>
           ) : (

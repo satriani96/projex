@@ -23,6 +23,9 @@ interface GanttTask {
   id: string;
   job_id: string;
   name: string;
+  company: string;
+  job_number: string;
+  customer_name: string;
   start: Date;
   end: Date;
   color: string;
@@ -128,6 +131,9 @@ const GanttChart: React.FC<GanttChartProps> = ({
         return {
             id: `task-${job.id}`,
             job_id: job.id,
+            job_number: job.job_number || 'No #',
+            customer_name: job.customer_name || 'Unnamed',
+            company: job.company || '',
             name: `${job.job_number || 'No #'} - ${job.customer_name || 'Unnamed'}`,
             start: new Date(job.job_start as string),
             end: new Date(job.job_end as string),
@@ -579,6 +585,43 @@ const GanttChart: React.FC<GanttChartProps> = ({
                             }}
                             style={{ cursor: 'pointer', touchAction: 'none' }}
                           />
+                          {/* Task information text */}
+                          {barWidth > 30 && (
+                            <>
+                              <text
+                                x={x + 5}
+                                y={y + 25}
+                                fontSize={10}
+                                fontWeight="bold"
+                                fill="white"
+                                style={{ pointerEvents: 'none' }}
+                              >
+                                #{task.job_number}
+                              </text>
+                              {barWidth > 60 && (
+                                <text
+                                  x={x + 5}
+                                  y={y + 38}
+                                  fontSize={9}
+                                  fill="white"
+                                  style={{ pointerEvents: 'none' }}
+                                >
+                                  {task.customer_name}
+                                </text>
+                              )}
+                              {barWidth > 90 && task.company && (
+                                <text
+                                  x={x + 5}
+                                  y={y + 50}
+                                  fontSize={8}
+                                  fill="white"
+                                  style={{ pointerEvents: 'none' }}
+                                >
+                                  {task.company}
+                                </text>
+                              )}
+                            </>
+                          )}
                           {/* Left resize handle */}
                           <Bar
                             key={`handle-start-${task.id}`}
