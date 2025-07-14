@@ -229,6 +229,17 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
 
     setIsSketchPadOpen(false);
   };
+  
+  // Handle archiving the job
+  const handleArchive = () => {
+    if (!job) return;
+    
+    if (window.confirm('Are you sure you want to archive this job? It will be removed from the main view.')) {
+      const updatedData = { ...formData, status: 'archived' as JobStatus };
+      setFormData(updatedData);
+      setHasUnsavedChanges(true);
+    }
+  };
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col h-full bg-white rounded-lg">
@@ -256,6 +267,22 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
               <path d="M16 18h4m-2 -2v4" />
             </svg>
           </button>
+          {/* Archive Button */}
+          {job && job.status !== 'archived' && (
+            <button 
+              type="button" 
+              onClick={handleArchive} 
+              title="Archive Job"
+              className="p-1 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
+                <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+                <path d="M10 12l4 0" />
+              </svg>
+            </button>
+          )}
           {job && onDelete && (
             <button 
               type="button" 

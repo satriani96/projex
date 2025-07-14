@@ -23,6 +23,24 @@ export const getJobs = async (): Promise<Job[]> => {
 };
 
 /**
+ * Fetches only archived jobs from the database.
+ */
+export const getArchivedJobs = async (): Promise<Job[]> => {
+  const { data, error } = await supabase
+    .from(TABLE_NAME)
+    .select('*')
+    .eq('status', 'archived')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching archived jobs:', error);
+    throw new Error(error.message);
+  }
+
+  return data || [];
+};
+
+/**
  * Creates a new job in the database.
  * @param jobData - The data for the new job.
  */
