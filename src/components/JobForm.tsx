@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { Job, JobFormData, JobStatus } from '../types/job';
 import SketchPadModal from './SketchPadModal';
 import { exportToBlob, getCommonBounds } from '@excalidraw/excalidraw';
 import type { ExcalidrawElement } from '@excalidraw/excalidraw/element/types';
 import type { AppState } from '@excalidraw/excalidraw/types';
+import logo from '../assets/logo.jpg';
 
 
 
@@ -19,6 +20,8 @@ const statusOptions: JobStatus[] = ['queued', 'in_progress', 'on_hold', 'done'];
 
 const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave, onDelete }) => {
   const [isSketchPadOpen, setIsSketchPadOpen] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const originalFormDataRef = useRef<JobFormData | null>(null);
   
   const [formData, setFormData] = useState<JobFormData>({
     customer_name: job?.customer_name || '',
@@ -35,9 +38,52 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
     sketch_data: job?.sketch_data || null,
   });
 
+  // Initialize original form data and track changes
+  useEffect(() => {
+    const initialData = {
+      customer_name: job?.customer_name || '',
+      company: job?.company || '',
+      address: job?.address || '',
+      phone_number: job?.phone_number || '',
+      email: job?.email || '',
+      material: job?.material || '',
+      status: job?.status || 'queued',
+      due_date: job?.due_date || '',
+      job_start: job?.job_start || null,
+      job_end: job?.job_end || null,
+      job_description: job?.job_description || '',
+      sketch_data: job?.sketch_data || null,
+    };
+    originalFormDataRef.current = initialData;
+    setFormData(initialData);
+    setHasUnsavedChanges(false);
+  }, [job]);
+
+  // Check for unsaved changes whenever formData changes
+  useEffect(() => {
+    if (!originalFormDataRef.current) return;
+    
+    const hasChanges = JSON.stringify(formData) !== JSON.stringify(originalFormDataRef.current);
+    setHasUnsavedChanges(hasChanges);
+  }, [formData]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const confirmUnsavedChanges = (): boolean => {
+    if (!hasUnsavedChanges) return true;
+    
+    return window.confirm(
+      'You have unsaved changes. Are you sure you want to leave without saving?'
+    );
+  };
+
+  const handleCancel = () => {
+    if (confirmUnsavedChanges()) {
+      onCancel();
+    }
   };
 
   const formatDateTimeForInput = (dateString: string | null | undefined) => {
@@ -55,6 +101,7 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
       job_end: formData.job_end ? new Date(formData.job_end).toISOString() : null,
     };
     onSubmit(data);
+    setHasUnsavedChanges(false);
   };
 
   const handlePrint = async () => {
@@ -110,7 +157,9 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
             @page { size: A4; margin: 20mm; }
             .page { width: 100%; height: 100%; }
             h1, h2 { margin: 0 0 10px 0; padding: 0; }
-            h1 { font-size: 22pt; border-bottom: 2px solid black; padding-bottom: 8px; margin-bottom: 20px; }
+            .header { display: flex; align-items: center; gap: 15px; border-bottom: 2px solid black; padding-bottom: 8px; margin-bottom: 20px; }
+            .header img { height: 32px; width: auto; }
+            .header h1 { font-size: 22pt; margin: 0; }
             .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
             .section { border: 1px solid #ccc; padding: 15px; border-radius: 8px; margin-bottom: 20px; page-break-inside: avoid; }
             .section h2 { font-size: 14pt; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
@@ -122,7 +171,10 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
         </head>
         <body>
           <div class="page">
-            <h1>Works Order: Job #${printData.job_number}</h1>
+            <div class="header">
+              <img src="${logo}" alt="Projex Logo" />
+              <h1>Works Order: Job #${printData.job_number}</h1>
+            </div>
             <div class="grid">
               <div class="section">
                 <h2>Customer Details</h2>
@@ -184,6 +236,7 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
         <div className="flex items-center space-x-3">
           <h2 className="text-md font-semibold text-gray-800">
             {job ? `Edit Job #${job.job_number}` : 'Create New Job'}
+            {hasUnsavedChanges && <span className="ml-2 text-orange-500 text-sm">• Unsaved changes</span>}
           </h2>
           {job && (
             <button type="button" onClick={handlePrint} title="Print Works Order" className="p-1 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-700">
@@ -225,7 +278,7 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
             </button>
           )}
         </div>
-        <button type="button" onClick={onCancel} className="p-1 rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600">
+        <button type="button" onClick={handleCancel} className="p-1 rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600">
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -307,8 +360,17 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
 
       {/* Modal Footer */}
       <div className="flex justify-end items-center space-x-2 p-2 border-t bg-gray-50 rounded-b-lg flex-shrink-0">
-        <button type="button" onClick={onCancel} className="px-2.5 py-1 bg-white border border-gray-300 text-gray-700 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 text-xs">Cancel</button>
-        <button type="submit" className="px-2.5 py-1 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 text-xs">{job ? 'Save Changes' : 'Create Job'}</button>
+        <button type="button" onClick={handleCancel} className="px-2.5 py-1 bg-white border border-gray-300 text-gray-700 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 text-xs">Cancel</button>
+        <button 
+          type="submit" 
+          className={`px-2.5 py-1 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 text-xs ${
+            hasUnsavedChanges 
+              ? 'bg-orange-600 hover:bg-orange-700 text-white' 
+              : 'bg-blue-600 hover:bg-blue-700 text-white'
+          }`}
+        >
+          {job ? 'Save Changes' : 'Create Job'}
+        </button>
       </div>
 
       <SketchPadModal

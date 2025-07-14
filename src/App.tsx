@@ -6,20 +6,22 @@ import JobForm from './components/JobForm';
 import KanbanBoard from './components/KanbanBoard';
 import JobCard from './components/JobCard';
 import GanttChart from './components/GanttChart';
+import logo from './assets/logo.jpg';
 
 function App() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFormVisible, setIsFormVisible] = useState(false);
-    const [selectedJob, setSelectedJob] = useState<Job | null>(null);
-    const [activeJob, setActiveJob] = useState<Job | null>(null);
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [activeJob, setActiveJob] = useState<Job | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'kanban' | 'gantt'>(() => {
     // Initialize from localStorage, default to kanban if not found
     const savedViewMode = localStorage.getItem('projex-view-mode');
     return (savedViewMode === 'kanban' || savedViewMode === 'gantt') ? savedViewMode : 'kanban';
   });
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
   // Save view mode to localStorage whenever it changes
   useEffect(() => {
@@ -195,20 +197,9 @@ function App() {
   return (
     <div className="h-screen bg-gray-50 text-gray-800 flex flex-col">
             <header className="flex justify-between items-center p-4 bg-white border-b border-gray-200 gap-4">
-        <h1 className="text-2xl font-bold text-gray-900">Projex</h1>
-        <div className="flex items-center gap-4">
-          <div className="bg-gray-200 p-1 rounded-md">
-            <button 
-              onClick={() => setViewMode('kanban')}
-              className={`px-3 py-1 text-sm font-medium rounded ${viewMode === 'kanban' ? 'bg-white text-blue-600 shadow' : 'bg-transparent text-gray-600'}`}>
-              Kanban
-            </button>
-            <button 
-              onClick={() => setViewMode('gantt')}
-              className={`px-3 py-1 text-sm font-medium rounded ${viewMode === 'gantt' ? 'bg-white text-blue-600 shadow' : 'bg-transparent text-gray-600'}`}>
-              Gantt
-            </button>
-          </div>
+        <div className="flex items-center gap-3">
+          <img src={logo} alt="Projex Logo" className="h-8 w-auto" />
+          <h1 className="text-2xl font-bold text-gray-900">Projex</h1>
         </div>
         <div className="flex-1 max-w-md">
           <input
@@ -249,7 +240,9 @@ function App() {
         )}
 
         {isFormVisible && (
-          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex justify-center items-center z-50 p-4" onClick={(e) => { if (e.target === e.currentTarget) handleCancelForm(); }}>
+          <div 
+            className="fixed inset-0 bg-black/20 backdrop-blur-sm flex justify-center items-center z-50 p-4"
+          >
             <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
               <JobForm
                 job={selectedJob}
@@ -267,4 +260,3 @@ function App() {
 }
 
 export default App;
-
