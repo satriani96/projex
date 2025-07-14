@@ -54,6 +54,23 @@ function App() {
       );
     });
   }, [jobs, searchQuery]);
+  
+  // Configure DND sensors at the top level to avoid React hooks rules violation
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      // Require the mouse to move by 10 pixels before activating
+      activationConstraint: {
+        distance: 10,
+      },
+    }),
+    useSensor(TouchSensor, {
+      // Press delay of 250ms, with tolerance of 5px of movement
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    })
+  );
 
   const handleNewJobClick = () => {
     setSelectedJob(null);
@@ -216,21 +233,7 @@ function App() {
         ) : (
           viewMode === 'kanban' ? (
             <DndContext
-              sensors={useSensors(
-                useSensor(PointerSensor, {
-                  // Require the mouse to move by 10 pixels before activating
-                  activationConstraint: {
-                    distance: 10,
-                  },
-                }),
-                useSensor(TouchSensor, {
-                  // Press delay of 250ms, with tolerance of 5px of movement
-                  activationConstraint: {
-                    delay: 250,
-                    tolerance: 5,
-                  },
-                })
-              )}
+              sensors={sensors}
               collisionDetection={closestCenter}
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
