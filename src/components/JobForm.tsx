@@ -278,11 +278,26 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
             </button>
           )}
         </div>
-        <button type="button" onClick={handleCancel} className="p-1 rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600">
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+        <div className="flex items-center space-x-2">
+          {/* Save Button as Tick Icon */}
+          <button 
+            type="submit" 
+            title={hasUnsavedChanges ? 'Save changes' : 'No changes to save'}
+            className={`p-1 rounded-full ${hasUnsavedChanges 
+              ? 'text-orange-600 hover:bg-orange-50 hover:text-orange-700' 
+              : 'text-green-600 hover:bg-green-50 hover:text-green-700'}`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 6L9 17l-5-5" />
+            </svg>
+          </button>
+          {/* Close Button */}
+          <button type="button" onClick={handleCancel} className="p-1 rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -358,19 +373,8 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
         </div>
       </div>
 
-      {/* Modal Footer */}
-      <div className="flex justify-end items-center space-x-2 p-2 border-t bg-gray-50 rounded-b-lg flex-shrink-0">
-        <button type="button" onClick={handleCancel} className="px-2.5 py-1 bg-white border border-gray-300 text-gray-700 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 text-xs">Cancel</button>
-        <button 
-          type="submit" 
-          className={`px-2.5 py-1 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 text-xs ${
-            hasUnsavedChanges 
-              ? 'bg-orange-600 hover:bg-orange-700 text-white' 
-              : 'bg-blue-600 hover:bg-blue-700 text-white'
-          }`}
-        >
-          {job ? 'Save Changes' : 'Create Job'}
-        </button>
+      {/* Modal Footer - Save button moved to header */}
+      <div className="flex-shrink-0 h-2 bg-gray-50 rounded-b-lg">
       </div>
 
       <SketchPadModal
