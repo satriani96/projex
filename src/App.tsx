@@ -16,12 +16,11 @@ function App() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [activeJob, setActiveJob] = useState<Job | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'kanban' | 'gantt'>(() => {
+  const [viewMode] = useState<'kanban' | 'gantt'>(() => {
     // Initialize from localStorage, default to kanban if not found
     const savedViewMode = localStorage.getItem('projex-view-mode');
     return (savedViewMode === 'kanban' || savedViewMode === 'gantt') ? savedViewMode : 'kanban';
   });
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
   // Save view mode to localStorage whenever it changes
   useEffect(() => {

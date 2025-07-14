@@ -248,7 +248,7 @@ const GanttChart: React.FC<GanttChartProps> = ({
       >
         {(zoom: any) => {
           // --- Fix: set initial domain for zoomedXScale to padded job range ---
-          const [initialDomain, setInitialDomain] = useState<[Date, Date] | null>(null);
+          const [, setInitialDomain] = useState<[Date, Date] | null>(null);
           const [initialZoomed, setInitialZoomed] = useState(false);
 
           // --- Controlled domain: sync timeline and tasks ---
