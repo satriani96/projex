@@ -5,10 +5,14 @@ import type { Job, JobFormData } from '../types/job';
 const TABLE_NAME = 'jobs';
 
 /**
- * Fetches all jobs from the database.
+ * Fetches all non-archived jobs from the database.
  */
 export const getJobs = async (): Promise<Job[]> => {
-  const { data, error } = await supabase.from(TABLE_NAME).select('*').order('created_at', { ascending: false });
+  const { data, error } = await supabase
+    .from(TABLE_NAME)
+    .select('*')
+    .neq('status', 'archived') // Exclude archived jobs
+    .order('created_at', { ascending: false });
 
   if (error) {
     console.error('Error fetching jobs:', error);

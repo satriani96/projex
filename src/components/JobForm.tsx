@@ -16,7 +16,7 @@ interface JobFormProps {
   onDelete?: (jobId: string) => void;
 }
 
-const statusOptions: JobStatus[] = ['queued', 'in_progress', 'on_hold', 'done'];
+const statusOptions: JobStatus[] = ['queued', 'in_progress', 'on_hold', 'done', 'archived'];
 
 const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave, onDelete }) => {
   const [isSketchPadOpen, setIsSketchPadOpen] = useState(false);

@@ -1,4 +1,4 @@
-export type JobStatus = 'queued' | 'in_progress' | 'on_hold' | 'done';
+export type JobStatus = 'queued' | 'in_progress' | 'on_hold' | 'done' | 'archived';
 
 /**
  * Represents a full job record, including read-only fields like id and timestamps.

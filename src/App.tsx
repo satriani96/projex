@@ -6,6 +6,7 @@ import JobForm from './components/JobForm';
 import KanbanBoard from './components/KanbanBoard';
 import JobCard from './components/JobCard';
 import GanttChart from './components/GanttChart';
+import ArchivedJobsModal from './components/ArchivedJobsModal';
 import logo from './assets/logo.jpg';
 
 // Card size type for job cards
@@ -19,6 +20,7 @@ function App() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [activeJob, setActiveJob] = useState<Job | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'kanban' | 'gantt'>(() => {
     // Initialize from localStorage, default to kanban if not found
     const savedViewMode = localStorage.getItem('projex-view-mode');
@@ -266,6 +268,19 @@ function App() {
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
+        {/* Archive Button */}
+        <button 
+          onClick={() => setIsArchiveModalOpen(true)}
+          className="p-1.5 rounded-md text-gray-500 hover:bg-gray-200 hover:text-gray-700 flex items-center mr-2"
+          title="View Archived Jobs"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+            <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
+            <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+            <path d="M10 12l4 0" />
+          </svg>
+        </button>
         <button 
           onClick={handleNewJobClick}
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
@@ -310,6 +325,17 @@ function App() {
             </div>
           </div>
         )}
+        
+        {/* Archived Jobs Modal */}
+        <ArchivedJobsModal
+          isOpen={isArchiveModalOpen}
+          onClose={() => setIsArchiveModalOpen(false)}
+          onJobClick={(job) => {
+            setSelectedJob(job);
+            setIsFormVisible(true);
+            setIsArchiveModalOpen(false);
+          }}
+        />
       </main>
     </div>
   );
