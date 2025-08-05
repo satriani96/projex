@@ -39,6 +39,8 @@ const JobCard: React.FC<JobCardProps> = ({ job, onClick, cardSize = 'medium' }) 
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const cardTitle = job.company && job.company.trim() ? job.company : job.customer_name;
+
   return (
     <div
       ref={setNodeRef}
@@ -62,7 +64,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onClick, cardSize = 'medium' }) 
         {cardSize === 'compact' && (
           <>
             <div className="flex justify-between items-baseline">
-              <h4 className="font-semibold text-gray-800 truncate">{job.customer_name}</h4>
+              <h4 className="font-semibold text-gray-800 truncate">{cardTitle}</h4>
               <span className="text-xs font-mono text-gray-500 ml-1">#{job.job_number}</span>
             </div>
             {daysUntilDue && (
@@ -79,7 +81,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onClick, cardSize = 'medium' }) 
         {cardSize === 'medium' && (
           <>
             <div className="flex justify-between items-baseline mb-1">
-              <h4 className="font-semibold text-gray-800 truncate">{job.customer_name}</h4>
+              <h4 className="font-semibold text-gray-800 truncate">{cardTitle}</h4>
               <span className="text-xs font-mono text-gray-500">#{job.job_number}</span>
             </div>
             <p className="text-sm text-gray-600 truncate">{job.material}</p>
@@ -100,10 +102,12 @@ const JobCard: React.FC<JobCardProps> = ({ job, onClick, cardSize = 'medium' }) 
         {cardSize === 'large' && (
           <>
             <div className="flex justify-between items-baseline mb-2">
-              <h4 className="font-semibold text-gray-800">{job.customer_name}</h4>
+              <h4 className="font-semibold text-gray-800">{cardTitle}</h4>
               <span className="text-xs font-mono text-gray-500">#{job.job_number}</span>
             </div>
-            {job.company && <p className="text-sm text-gray-700 mb-1">Company: {job.company}</p>}
+            {job.company && job.company.trim() && (
+              <p className="text-sm text-gray-700 mb-1">Customer: {job.customer_name}</p>
+            )}
             <p className="text-sm text-gray-600 mb-1">Material: {job.material}</p>
             {/* Machine property removed as it doesn't exist in the Job interface */}
             {job.status && <p className="text-sm text-gray-600 mb-1">Status: {job.status}</p>}
