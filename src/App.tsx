@@ -214,10 +214,11 @@ function App() {
 
       // Asynchronously update the backend
       (async () => {
-        const result = await updateJob(activeId, { status: newStatus });
-        // The service now returns an object with a potential error property
-        if (result && 'error' in result) {
-          setError(`Failed to move job: ${(result.error as any).message || 'Unknown error'}`);
+        try {
+          await updateJob(activeId, { status: newStatus });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          setError(`Failed to move job: ${message || 'Unknown error'}`);
           // Revert to the original state if the backend update fails
           setJobs(prevJobs);
         }
