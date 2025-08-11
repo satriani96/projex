@@ -51,6 +51,7 @@ const ArchivedJobsModal: React.FC<ArchivedJobsModalProps> = ({ isOpen, onClose, 
     const query = searchQuery.toLowerCase();
     return (
       job.job_number.toLowerCase().includes(query) ||
+      job.po_number.toLowerCase().includes(query) ||
       job.customer_name.toLowerCase().includes(query) ||
       job.company?.toLowerCase().includes(query) ||
       job.material?.toLowerCase().includes(query)

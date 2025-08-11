@@ -108,7 +108,8 @@ function App() {
       const query = searchQuery.toLowerCase();
       return (
         job.customer_name.toLowerCase().includes(query) ||
-        job.job_number.includes(query) // Job number is a string, so 'includes' works well.
+        job.job_number.toLowerCase().includes(query) ||
+        job.po_number.toLowerCase().includes(query)
       );
     });
   }, [jobs, searchQuery]);

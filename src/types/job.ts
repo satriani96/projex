@@ -6,6 +6,7 @@ export type JobStatus = 'queued' | 'in_progress' | 'on_hold' | 'done' | 'archive
 export interface Job {
   id: string;
   job_number: string;
+  po_number: string;
   customer_name: string;
   company: string;
   address: string;
@@ -29,6 +30,7 @@ export interface Job {
 export interface JobFormData {
   customer_name: string;
   company: string;
+  po_number: string;
   address: string;
   phone_number: string;
   email: string;
