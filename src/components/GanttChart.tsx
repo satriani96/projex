@@ -2,7 +2,6 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import type { Job } from '../types/job';
 import { Group } from '@visx/group';
 import { scaleTime } from '@visx/scale';
-import type { ScaleTime } from 'd3-scale';
 import { GridColumns } from '@visx/grid';
 import { AxisBottom } from '@visx/axis';
 import { Bar } from '@visx/shape';
@@ -11,6 +10,8 @@ import { localPoint } from '@visx/event';
 import { Zoom } from '@visx/zoom';
 import type { ProvidedZoom } from '@visx/zoom/lib/types';
 import { timeMinute, timeHour } from 'd3-time';
+
+type TimeScale = ReturnType<typeof scaleTime>;
 
 // Define interface for component props
 interface GanttChartProps {
@@ -54,7 +55,7 @@ const tooltipStyles = {
 };
 
 interface ZoomContentProps {
-  zoom: ProvidedZoom<SVGSVGElement>;
+  zoom: ProvidedZoom<SVGSVGElement> & { isDragging: boolean };
   ganttTasks: GanttTask[];
   xMax: number;
   width: number;
@@ -71,7 +72,7 @@ interface ZoomContentProps {
   showTooltip: (args: { tooltipData: GanttTask; tooltipLeft: number; tooltipTop: number }) => void;
   hideTooltip: () => void;
   svgRef: React.RefObject<SVGSVGElement>;
-  xScale: ScaleTime<number, number>;
+  xScale: TimeScale;
   jobs: Job[];
   onJobClick: (job: Job) => void;
   hugeDomain: [Date, Date];
@@ -150,9 +151,11 @@ const ZoomContent: React.FC<ZoomContentProps> = ({
   }, [handleZoom]);
 
   useEffect(() => {
-    zoom.dragMove = (e: MouseEvent | React.MouseEvent) => {
+    zoom.dragMove = (
+      event: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent
+    ) => {
       if (!zoom.isDragging) return;
-      const deltaPx = e.movementX;
+      const deltaPx = 'movementX' in event ? event.movementX : 0;
       handlePan(deltaPx);
     };
   }, [zoom, handlePan]);
@@ -232,7 +235,7 @@ const ZoomContent: React.FC<ZoomContentProps> = ({
     setInitialDomain([paddedMin, paddedMax]);
     const domainMs = paddedMax.getTime() - paddedMin.getTime();
     const scaleX = xMax / domainMs;
-    const minDateX = xScale(paddedMin);
+    const minDateX = xScale(paddedMin) as number;
     zoom.setTransformMatrix({
       scaleX,
       scaleY: 1,
@@ -260,7 +263,7 @@ const ZoomContent: React.FC<ZoomContentProps> = ({
                 : 'default',
           touchAction: 'none'
         }}
-        {...zoom.containerProps}
+        onWheel={zoom.handleWheel}
         onMouseDown={e => {
           if ((panning || middlePanning) && e.button !== 2) {
             if (e.button === 1) e.preventDefault();
@@ -270,11 +273,11 @@ const ZoomContent: React.FC<ZoomContentProps> = ({
         onMouseMove={e => {
           if (panning || middlePanning) zoom.dragMove(e);
         }}
-        onMouseUp={e => {
-          if (panning || middlePanning) zoom.dragEnd(e);
+        onMouseUp={() => {
+          if (panning || middlePanning) zoom.dragEnd();
         }}
-        onMouseLeave={e => {
-          if (panning || middlePanning) zoom.dragEnd(e);
+        onMouseLeave={() => {
+          if (panning || middlePanning) zoom.dragEnd();
         }}
       >
         <defs>
@@ -427,9 +430,11 @@ const ZoomContent: React.FC<ZoomContentProps> = ({
             const domain = zoomedXScale.domain();
             const ms = domain[1].getTime() - domain[0].getTime();
             if (ms < 2 * 60 * 60 * 1000) {
-              return zoomedXScale.ticks(timeMinute.every(5));
+              const interval = timeMinute.every(5);
+              return zoomedXScale.ticks(interval ?? timeMinute);
             } else if (ms < 24 * 60 * 60 * 1000) {
-              return zoomedXScale.ticks(timeHour.every(1));
+              const interval = timeHour.every(1);
+              return zoomedXScale.ticks(interval ?? timeHour);
             } else {
               return zoomedXScale.ticks();
             }
@@ -584,7 +589,7 @@ const GanttChart: React.FC<GanttChartProps> = ({
     }), [jobs]);
 
   // Infinite timeline: set a huge domain
-  const hugeDomain = useMemo(() => {
+  const hugeDomain = useMemo<[Date, Date]>(() => {
     const now = new Date();
     const min = new Date(now.getTime());
     min.setFullYear(min.getFullYear() - 50);
@@ -692,7 +697,7 @@ const GanttChart: React.FC<GanttChartProps> = ({
         scaleXMin={0.01} // allow much deeper zoom in
         scaleXMax={200} // allow much further zoom out
       >
-        {(zoom: ProvidedZoom<SVGSVGElement>) => (
+        {(zoom) => (
           <ZoomContent
             zoom={zoom}
             ganttTasks={ganttTasks}
