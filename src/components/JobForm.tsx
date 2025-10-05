@@ -24,6 +24,7 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
   const originalFormDataRef = useRef<JobFormData | null>(null);
   
   const [formData, setFormData] = useState<JobFormData>({
+    po_number: job?.po_number || '',
     customer_name: job?.customer_name || '',
     company: job?.company || '',
     address: job?.address || '',
@@ -41,6 +42,7 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
   // Initialize original form data and track changes
   useEffect(() => {
     const initialData = {
+      po_number: job?.po_number || '',
       customer_name: job?.customer_name || '',
       company: job?.company || '',
       address: job?.address || '',
@@ -189,6 +191,7 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
               <div class="section">
                 <h2>Job Details</h2>
                 <div class="details">
+                  <p><strong>PO Number:</strong> ${printData.po_number || 'N/A'}</p>
                   <p><strong>Due Date:</strong> ${printData.due_date || 'N/A'}</p>
                   <p><strong>Material:</strong> ${printData.material || 'N/A'}</p>
                   <p><strong>Status:</strong> ${(printData.status || '').replace('_', ' ')}</p>
@@ -287,10 +290,10 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
             <button 
               type="button" 
               onClick={() => {
-                if (window.confirm('Are you sure you want to delete this job? This action cannot be undone.')) {
-                  job.id && onDelete(job.id);
+                if (window.confirm('Are you sure you want to delete this job? This action cannot be undone.') && job.id) {
+                  onDelete(job.id);
                 }
-              }} 
+              }}
               title="Delete Job"
               className="p-1 rounded-full text-red-500 hover:bg-red-50 hover:text-red-700"
             >
@@ -334,12 +337,38 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
                 {/* Job Number */}
                 <div>
                   <label htmlFor="job_number" className="block text-sm font-medium text-gray-700 mb-1">Job Number</label>
-                  <input type="text" id="job_number" name="job_number" value={job?.job_number || ''} className="px-3 py-2 text-sm block w-full border border-gray-300 rounded-md shadow-sm bg-gray-100" readOnly />
+                  <input
+                    type="text"
+                    id="job_number"
+                    name="job_number"
+                    value={job?.job_number || ''}
+                    className="px-3 py-2 text-sm block w-full border border-gray-300 rounded-md shadow-sm bg-gray-100"
+                    readOnly
+                  />
+                </div>
+                {/* PO Number */}
+                <div>
+                  <label htmlFor="po_number" className="block text-sm font-medium text-gray-700 mb-1">PO Number</label>
+                  <input
+                    id="po_number"
+                    name="po_number"
+                    value={formData.po_number}
+                    onChange={handleChange}
+                    placeholder="e.g., PO12345"
+                    className="px-3 py-2 text-sm block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  />
                 </div>
                 {/* Company */}
                 <div>
                   <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-1">Company</label>
-                  <input id="company" name="company" value={formData.company} onChange={handleChange} placeholder="e.g., ABC Corporation" className="px-3 py-2 text-sm block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
+                  <input
+                    id="company"
+                    name="company"
+                    value={formData.company}
+                    onChange={handleChange}
+                    placeholder="e.g., ABC Corporation"
+                    className="px-3 py-2 text-sm block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  />
                 </div>
                 {/* Customer Name */}
                 <div>

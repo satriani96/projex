@@ -8,7 +8,10 @@ import { Bar } from '@visx/shape';
 import { useTooltip, useTooltipInPortal, defaultStyles } from '@visx/tooltip';
 import { localPoint } from '@visx/event';
 import { Zoom } from '@visx/zoom';
+import type { ProvidedZoom } from '@visx/zoom/lib/types';
 import { timeMinute, timeHour } from 'd3-time';
+
+type TimeScale = ReturnType<typeof scaleTime>;
 
 // Define interface for component props
 interface GanttChartProps {
@@ -33,9 +36,14 @@ interface GanttTask {
 
 type DragOperation = 'move' | 'resize-start' | 'resize-end' | null;
 
+interface WindowWithLatestZoom extends Window {
+  __latestZoom?: (scale: number, center: { x: number; y: number }) => void;
+}
+
 // Chart dimensions
 const margin = { top: 20, right: 60, bottom: 100, left: 60 };
 const DRAG_HANDLE_WIDTH = 8;
+const rowHeight = 80; // Single fixed height for all bars
 
 const tooltipStyles = {
   ...defaultStyles,
@@ -44,6 +52,445 @@ const tooltipStyles = {
   padding: '0.5rem',
   borderRadius: '4px',
   fontSize: '12px',
+};
+
+interface ZoomContentProps {
+  zoom: ProvidedZoom<SVGSVGElement> & { isDragging: boolean };
+  ganttTasks: GanttTask[];
+  xMax: number;
+  width: number;
+  height: number;
+  panning: boolean;
+  middlePanning: boolean;
+  dragOperation: DragOperation;
+  draggedTask: GanttTask | null;
+  dragStartPosition: { x: number; startDate: Date; endDate: Date } | null;
+  setDraggedTask: React.Dispatch<React.SetStateAction<GanttTask | null>>;
+  handleDragEnd: () => void;
+  getCursorStyle: (operation: DragOperation) => string;
+  onMouseDown: (event: React.MouseEvent, task: GanttTask, operation: DragOperation) => void;
+  showTooltip: (args: { tooltipData: GanttTask; tooltipLeft: number; tooltipTop: number }) => void;
+  hideTooltip: () => void;
+  svgRef: React.RefObject<SVGSVGElement>;
+  xScale: TimeScale;
+  jobs: Job[];
+  onJobClick: (job: Job) => void;
+  hugeDomain: [Date, Date];
+}
+
+const ZoomContent: React.FC<ZoomContentProps> = ({
+  zoom,
+  ganttTasks,
+  xMax,
+  width,
+  height,
+  panning,
+  middlePanning,
+  dragOperation,
+  draggedTask,
+  dragStartPosition,
+  setDraggedTask,
+  handleDragEnd,
+  getCursorStyle,
+  onMouseDown,
+  showTooltip,
+  hideTooltip,
+  svgRef,
+  xScale,
+  jobs,
+  onJobClick,
+  hugeDomain,
+}) => {
+  const [, setInitialDomain] = useState<[Date, Date] | null>(null);
+  const [initialZoomed, setInitialZoomed] = useState(false);
+  const [visibleDomain, setVisibleDomain] = useState<[Date, Date] | null>(null);
+  const [initialFitted, setInitialFitted] = useState(false);
+
+  useEffect(() => {
+    if (initialFitted || visibleDomain) return;
+    if (!ganttTasks.length) return;
+    const minDate = new Date(Math.min(...ganttTasks.map(t => t.start.getTime())));
+    const maxDate = new Date(Math.max(...ganttTasks.map(t => t.end.getTime())));
+    const paddedMin = new Date(minDate.getTime() - 3 * 24 * 60 * 60 * 1000);
+    const paddedMax = new Date(maxDate.getTime() + 3 * 24 * 60 * 60 * 1000);
+    setVisibleDomain([paddedMin, paddedMax]);
+    setInitialFitted(true);
+  }, [ganttTasks, visibleDomain, initialFitted]);
+
+  const handlePan = useCallback((deltaPx: number) => {
+    if (!visibleDomain) return;
+    const domainMs = visibleDomain[1].getTime() - visibleDomain[0].getTime();
+    const msPerPx = domainMs / xMax;
+    const deltaMs = -deltaPx * msPerPx;
+    setVisibleDomain([
+      new Date(visibleDomain[0].getTime() + deltaMs),
+      new Date(visibleDomain[1].getTime() + deltaMs)
+    ]);
+  }, [visibleDomain, xMax]);
+
+  const handleZoom = useCallback((scaleFactor: number, centerPx: number) => {
+    if (!visibleDomain) return;
+    const domainStart = visibleDomain[0].getTime();
+    const domainEnd = visibleDomain[1].getTime();
+    const domainMs = domainEnd - domainStart;
+    const centerRatio = centerPx / xMax;
+    const centerTime = domainStart + domainMs * centerRatio;
+    const newDomainMs = domainMs / scaleFactor;
+    const newStart = centerTime - newDomainMs * centerRatio;
+    const newEnd = centerTime + newDomainMs * (1 - centerRatio);
+    setVisibleDomain([
+      new Date(newStart),
+      new Date(newEnd)
+    ]);
+  }, [visibleDomain, xMax]);
+
+  useEffect(() => {
+    (window as WindowWithLatestZoom).__latestZoom = (scale: number, center: { x: number; y: number }) => {
+      handleZoom(scale, center.x - margin.left);
+    };
+  }, [handleZoom]);
+
+  useEffect(() => {
+    zoom.dragMove = (
+      event: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent
+    ) => {
+      if (!zoom.isDragging) return;
+      const deltaPx = 'movementX' in event ? event.movementX : 0;
+      handlePan(deltaPx);
+    };
+  }, [zoom, handlePan]);
+
+  const zoomedXScale = useMemo(() => {
+    const scale = scaleTime({
+      domain: visibleDomain || hugeDomain,
+      range: [0, xMax],
+    });
+    return scale;
+  }, [visibleDomain, xMax, hugeDomain]);
+
+  const msPerPixel = useMemo(() => {
+    const domain = zoomedXScale.domain();
+    const range = zoomedXScale.range();
+    const visibleTimeRange = domain[1].getTime() - domain[0].getTime();
+    const pixelRange = range[1] - range[0];
+    return visibleTimeRange / pixelRange;
+  }, [zoomedXScale]);
+
+  const handleDrag = useCallback((clientX: number) => {
+    if (!draggedTask || !dragOperation || !dragStartPosition) {
+      return;
+    }
+    const deltaX = clientX - dragStartPosition.x;
+    const deltaMs = deltaX * msPerPixel;
+    let newStart = new Date(dragStartPosition.startDate);
+    let newEnd = new Date(dragStartPosition.endDate);
+    if (dragOperation === 'move') {
+      newStart = new Date(newStart.getTime() + deltaMs);
+      newEnd = new Date(newEnd.getTime() + deltaMs);
+    } else if (dragOperation === 'resize-start') {
+      newStart = new Date(newStart.getTime() + deltaMs);
+      if (newStart > newEnd) newStart = newEnd;
+    } else if (dragOperation === 'resize-end') {
+      newEnd = new Date(newEnd.getTime() + deltaMs);
+      if (newEnd < newStart) newEnd = newStart;
+    }
+    setDraggedTask({
+      ...draggedTask,
+      start: newStart,
+      end: newEnd
+    });
+  }, [draggedTask, dragOperation, dragStartPosition, msPerPixel, setDraggedTask]);
+
+  useEffect(() => {
+    if (!dragOperation || !draggedTask) return;
+    const handleMouseMove = (event: MouseEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      handleDrag(event.clientX);
+    };
+    const handleMouseUp = (event: MouseEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      handleDragEnd();
+    };
+    window.addEventListener('mousemove', handleMouseMove, { capture: true });
+    window.addEventListener('mouseup', handleMouseUp, { capture: true });
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = getCursorStyle(dragOperation);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove, { capture: true });
+      window.removeEventListener('mouseup', handleMouseUp, { capture: true });
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+  }, [dragOperation, draggedTask, handleDrag, handleDragEnd, getCursorStyle]);
+
+  useEffect(() => {
+    if (initialZoomed) return;
+    if (!ganttTasks.length) return;
+    const minDate = new Date(Math.min(...ganttTasks.map(t => t.start.getTime())));
+    const maxDate = new Date(Math.max(...ganttTasks.map(t => t.end.getTime())));
+    const paddedMin = new Date(minDate.getTime() - 3 * 24 * 60 * 60 * 1000);
+    const paddedMax = new Date(maxDate.getTime() + 3 * 24 * 60 * 60 * 1000);
+    setInitialDomain([paddedMin, paddedMax]);
+    const domainMs = paddedMax.getTime() - paddedMin.getTime();
+    const scaleX = xMax / domainMs;
+    const minDateX = xScale(paddedMin) as number;
+    zoom.setTransformMatrix({
+      scaleX,
+      scaleY: 1,
+      translateX: margin.left - minDateX * scaleX,
+      translateY: 0,
+      skewX: 0,
+      skewY: 0
+    });
+    setInitialZoomed(true);
+  }, [ganttTasks, xScale, xMax, zoom, initialZoomed]);
+
+  return (
+    <>
+      <svg
+        ref={svgRef}
+        width={width}
+        height={height}
+        style={{
+          cursor: dragOperation
+            ? getCursorStyle(dragOperation)
+            : zoom.isDragging
+              ? 'grabbing'
+              : (panning || middlePanning)
+                ? 'grab'
+                : 'default',
+          touchAction: 'none'
+        }}
+        onWheel={zoom.handleWheel}
+        onMouseDown={e => {
+          if ((panning || middlePanning) && e.button !== 2) {
+            if (e.button === 1) e.preventDefault();
+            zoom.dragStart(e);
+          }
+        }}
+        onMouseMove={e => {
+          if (panning || middlePanning) zoom.dragMove(e);
+        }}
+        onMouseUp={() => {
+          if (panning || middlePanning) zoom.dragEnd();
+        }}
+        onMouseLeave={() => {
+          if (panning || middlePanning) zoom.dragEnd();
+        }}
+      >
+        <defs>
+          <clipPath id="clip">
+            <rect x={0} y={0} width={xMax} height={rowHeight} />
+          </clipPath>
+        </defs>
+        <rect x={0} y={0} width={width} height={height} fill="#fff" rx={14} />
+        <Group left={margin.left} top={margin.top}>
+          <GridColumns scale={zoomedXScale} height={rowHeight} stroke="#e0e0e0" />
+          <Group clipPath="url(#clip)">
+            {ganttTasks.map((task: GanttTask) => {
+              const renderTask = (draggedTask && draggedTask.id === task.id) ? draggedTask : task;
+              const y = 0;
+              const x = zoomedXScale(renderTask.start);
+              const barWidth = zoomedXScale(renderTask.end) - x;
+              const barHeight = rowHeight;
+              if (barWidth <= 0) return null;
+              const isDragging = draggedTask && draggedTask.id === task.id;
+              return (
+                <Group key={`bar-group-${task.id}`}>
+                  <Bar
+                    key={`drag-handle-${task.id}`}
+                    x={x}
+                    y={y}
+                    width={barWidth}
+                    height={10}
+                    fill={task.color}
+                    opacity={isDragging ? 0.7 : 1}
+                    rx={4}
+                    ry={0}
+                    onMouseDown={(event: React.MouseEvent) => onMouseDown(event, task, 'move')}
+                    onMouseMove={(event: React.MouseEvent) => {
+                      if (!dragOperation) {
+                        const point = localPoint(event);
+                        if (!point) return;
+                        showTooltip({
+                          tooltipData: task,
+                          tooltipLeft: point.x,
+                          tooltipTop: point.y,
+                        });
+                      }
+                    }}
+                    onMouseLeave={() => {
+                      if (!dragOperation) hideTooltip();
+                    }}
+                    style={{ cursor: 'grab', touchAction: 'none' }}
+                  />
+
+                  <Bar
+                    key={`bar-${task.id}`}
+                    x={x}
+                    y={y + 10}
+                    width={barWidth}
+                    height={barHeight - 10}
+                    fill={task.color}
+                    opacity={isDragging ? 0.7 : 0.85}
+                    rx={0}
+                    ry={4}
+                    onClick={() => {
+                      const jobObj = jobs.find(job => job.id === task.job_id);
+                      if (jobObj) onJobClick(jobObj);
+                    }}
+                    onMouseMove={(event: React.MouseEvent) => {
+                      if (!dragOperation) {
+                        const point = localPoint(event);
+                        if (!point) return;
+                        showTooltip({
+                          tooltipData: task,
+                          tooltipLeft: point.x,
+                          tooltipTop: point.y,
+                        });
+                      }
+                    }}
+                    onMouseLeave={() => {
+                      if (!dragOperation) hideTooltip();
+                    }}
+                    style={{ cursor: 'pointer', touchAction: 'none' }}
+                  />
+                  {barWidth > 30 && (
+                    <>
+                      <text
+                        x={x + 5}
+                        y={y + 25}
+                        fontSize={10}
+                        fontWeight="bold"
+                        fill="white"
+                        style={{ pointerEvents: 'none' }}
+                      >
+                        #{task.job_number}
+                      </text>
+                      {barWidth > 60 && (
+                        <text
+                          x={x + 5}
+                          y={y + 38}
+                          fontSize={9}
+                          fill="white"
+                          style={{ pointerEvents: 'none' }}
+                        >
+                          {task.customer_name}
+                        </text>
+                      )}
+                      {barWidth > 90 && task.company && (
+                        <text
+                          x={x + 5}
+                          y={y + 50}
+                          fontSize={8}
+                          fill="white"
+                          style={{ pointerEvents: 'none' }}
+                        >
+                          {task.company}
+                        </text>
+                      )}
+                    </>
+                  )}
+                  <Bar
+                    key={`handle-start-${task.id}`}
+                    x={x - DRAG_HANDLE_WIDTH / 2}
+                    y={y}
+                    width={DRAG_HANDLE_WIDTH}
+                    height={barHeight}
+                    fill="rgba(0,0,0,0.2)"
+                    rx={2}
+                    onMouseDown={(event: React.MouseEvent) => onMouseDown(event, task, 'resize-start')}
+                    style={{ cursor: 'ew-resize', touchAction: 'none' }}
+                  />
+                  <Bar
+                    key={`handle-end-${task.id}`}
+                    x={x + barWidth - DRAG_HANDLE_WIDTH / 2}
+                    y={y}
+                    width={DRAG_HANDLE_WIDTH}
+                    height={barHeight}
+                    fill="rgba(0,0,0,0.2)"
+                    rx={2}
+                    onMouseDown={(event: React.MouseEvent) => onMouseDown(event, task, 'resize-end')}
+                    style={{ cursor: 'ew-resize', touchAction: 'none' }}
+                  />
+                </Group>
+              );
+            })}
+          </Group>
+        </Group>
+        <AxisBottom
+          top={rowHeight + margin.top}
+          left={margin.left}
+          scale={zoomedXScale}
+          stroke="#333"
+          tickStroke="#333"
+          tickValues={useMemo(() => {
+            const domain = zoomedXScale.domain();
+            const ms = domain[1].getTime() - domain[0].getTime();
+            if (ms < 2 * 60 * 60 * 1000) {
+              const interval = timeMinute.every(5);
+              return zoomedXScale.ticks(interval ?? timeMinute);
+            } else if (ms < 24 * 60 * 60 * 1000) {
+              const interval = timeHour.every(1);
+              return zoomedXScale.ticks(interval ?? timeHour);
+            } else {
+              return zoomedXScale.ticks();
+            }
+          }, [zoomedXScale])}
+          tickFormat={(value) => {
+            const date = value instanceof Date ? value : new Date(Number(value.valueOf()));
+            const domain = zoomedXScale.domain();
+            const ms = domain[1].getTime() - domain[0].getTime();
+            if (ms < 2 * 60 * 60 * 1000) {
+              return date.getHours().toString().padStart(2, '0') + ':' + date.getMinutes().toString().padStart(2, '0');
+            } else {
+              return date.getHours() + ':00';
+            }
+          }}
+          tickLabelProps={() => ({
+            fill: '#333',
+            fontSize: 10,
+            textAnchor: 'middle'
+          })}
+        />
+        <AxisBottom
+          top={rowHeight + margin.top + 30}
+          left={margin.left}
+          scale={zoomedXScale}
+          stroke="#333"
+          tickStroke="#333"
+          tickFormat={(value) => {
+            const date = value instanceof Date ? value : new Date(Number(value.valueOf()));
+            return date.getDate().toString();
+          }}
+          tickLabelProps={() => ({
+            fill: '#333',
+            fontSize: 11,
+            textAnchor: 'middle'
+          })}
+        />
+        <AxisBottom
+          top={rowHeight + margin.top + 60}
+          left={margin.left}
+          scale={zoomedXScale}
+          tickFormat={(value) => {
+            const date = value instanceof Date ? value : new Date(Number(value.valueOf()));
+            return new Intl.DateTimeFormat('en-US', { month: 'short' }).format(date);
+          }}
+          stroke="#333"
+          tickStroke="#333"
+          tickLabelProps={() => ({
+            fill: '#333',
+            fontSize: 12,
+            textAnchor: 'middle',
+            fontWeight: 'bold'
+          })}
+        />
+      </svg>
+    </>
+  );
 };
 
 const GanttChart: React.FC<GanttChartProps> = ({ 
@@ -142,7 +589,7 @@ const GanttChart: React.FC<GanttChartProps> = ({
     }), [jobs]);
 
   // Infinite timeline: set a huge domain
-  const hugeDomain = useMemo(() => {
+  const hugeDomain = useMemo<[Date, Date]>(() => {
     const now = new Date();
     const min = new Date(now.getTime());
     min.setFullYear(min.getFullYear() - 50);
@@ -162,9 +609,6 @@ const GanttChart: React.FC<GanttChartProps> = ({
     });
   }, [xMax, hugeDomain]);
   
-  // Calculate the row height for the single row
-  const rowHeight = 80; // Single fixed height for all bars to ensure enough space
-
   // Handle drag operations for task bars
   const handleDragStart = useCallback((task: GanttTask, operation: DragOperation, clientX: number) => {
     // Make a deep copy to avoid mutation issues
@@ -224,8 +668,9 @@ const GanttChart: React.FC<GanttChartProps> = ({
       const svgX = e.clientX - rect.left;
       const svgY = e.clientY - rect.top;
       // Pass the SVG coordinates directly as the center
-      if (typeof (window as any).__latestZoom === 'function') {
-        (window as any).__latestZoom(scale, { x: svgX, y: svgY });
+      const win = window as WindowWithLatestZoom;
+      if (typeof win.__latestZoom === 'function') {
+        win.__latestZoom(scale, { x: svgX, y: svgY });
       }
     };
     svg.addEventListener('wheel', handleWheel, { passive: false });
@@ -252,437 +697,31 @@ const GanttChart: React.FC<GanttChartProps> = ({
         scaleXMin={0.01} // allow much deeper zoom in
         scaleXMax={200} // allow much further zoom out
       >
-        {(zoom: any) => {
-          // --- Fix: set initial domain for zoomedXScale to padded job range ---
-          const [, setInitialDomain] = useState<[Date, Date] | null>(null);
-          const [initialZoomed, setInitialZoomed] = useState(false);
-
-          // --- Controlled domain: sync timeline and tasks ---
-          const [visibleDomain, setVisibleDomain] = useState<[Date, Date] | null>(null);
-          const [initialFitted, setInitialFitted] = useState(false);
-
-          // On initial load, set domain to tightly fit jobs and set zoom transform
-          useEffect(() => {
-            if (initialFitted || visibleDomain) return;
-            if (!ganttTasks.length) return;
-            const minDate = new Date(Math.min(...ganttTasks.map(t => t.start.getTime())));
-            const maxDate = new Date(Math.max(...ganttTasks.map(t => t.end.getTime())));
-            const paddedMin = new Date(minDate.getTime() - 3 * 24 * 60 * 60 * 1000);
-            const paddedMax = new Date(maxDate.getTime() + 3 * 24 * 60 * 60 * 1000);
-            setVisibleDomain([paddedMin, paddedMax]);
-            setInitialFitted(true);
-          }, [ganttTasks, visibleDomain, initialFitted]);
-
-          // Remove useEffect that syncs domain from transform matrix
-
-          // Custom pan/zoom handlers to update domain in state
-          const handlePan = useCallback((deltaPx: number) => {
-            if (!visibleDomain) return;
-            const domainMs = visibleDomain[1].getTime() - visibleDomain[0].getTime();
-            const msPerPx = domainMs / xMax;
-            const deltaMs = -deltaPx * msPerPx; // negative for natural direction
-            setVisibleDomain([
-              new Date(visibleDomain[0].getTime() + deltaMs),
-              new Date(visibleDomain[1].getTime() + deltaMs)
-            ]);
-          }, [visibleDomain, xMax]);
-
-          const handleZoom = useCallback((scaleFactor: number, centerPx: number) => {
-            if (!visibleDomain) return;
-            const domainStart = visibleDomain[0].getTime();
-            const domainEnd = visibleDomain[1].getTime();
-            const domainMs = domainEnd - domainStart;
-            const centerRatio = centerPx / xMax;
-            const centerTime = domainStart + domainMs * centerRatio;
-            const newDomainMs = domainMs / scaleFactor;
-            const newStart = centerTime - newDomainMs * centerRatio;
-            const newEnd = centerTime + newDomainMs * (1 - centerRatio);
-            setVisibleDomain([
-              new Date(newStart),
-              new Date(newEnd)
-            ]);
-          }, [visibleDomain, xMax]);
-
-          // Patch visx Zoom event handlers to call our pan/zoom
-          useEffect(() => {
-            (window as any).__latestZoom = (scale: number, center: { x: number; y: number }) => {
-              handleZoom(scale, center.x - margin.left);
-            };
-          }, [handleZoom]);
-
-          // Patch dragStart/dragMove to call our pan
-          useEffect(() => {
-            zoom.dragMove = (e: MouseEvent | React.MouseEvent) => {
-              if (!zoom.isDragging) return;
-              const deltaPx = e.movementX;
-              handlePan(deltaPx);
-            };
-          }, [zoom, handlePan]);
-
-          // --- Use correct domain for zoomedXScale at all times ---
-          const zoomedXScale = useMemo(() => {
-            const scale = scaleTime({
-              domain: visibleDomain || hugeDomain,
-              range: [0, xMax],
-            });
-            return scale;
-          }, [visibleDomain, xMax, hugeDomain]);
-
-          // Calculate msPerPixel based on zoomed scale
-          const msPerPixel = useMemo(() => {
-            const domain = zoomedXScale.domain();
-            const range = zoomedXScale.range();
-            const visibleTimeRange = domain[1].getTime() - domain[0].getTime();
-            const pixelRange = range[1] - range[0];
-            return visibleTimeRange / pixelRange;
-          }, [zoomedXScale]);
-
-          // Drag logic that uses the zoomed msPerPixel
-          const handleDrag = useCallback((clientX: number) => {
-            if (!draggedTask || !dragOperation || !dragStartPosition) {
-              return;
-            }
-            const deltaX = clientX - dragStartPosition.x;
-            const deltaMs = deltaX * msPerPixel;
-            let newStart = new Date(dragStartPosition.startDate);
-            let newEnd = new Date(dragStartPosition.endDate);
-            if (dragOperation === 'move') {
-              newStart = new Date(newStart.getTime() + deltaMs);
-              newEnd = new Date(newEnd.getTime() + deltaMs);
-            } else if (dragOperation === 'resize-start') {
-              newStart = new Date(newStart.getTime() + deltaMs);
-              if (newStart > newEnd) newStart = newEnd;
-            } else if (dragOperation === 'resize-end') {
-              newEnd = new Date(newEnd.getTime() + deltaMs);
-              if (newEnd < newStart) newEnd = newStart;
-            }
-            setDraggedTask({
-              ...draggedTask,
-              start: newStart,
-              end: newEnd
-            });
-          }, [draggedTask, dragOperation, dragStartPosition, msPerPixel]);
-
-          // Move the global mouse event handler useEffect here
-          useEffect(() => {
-            if (!dragOperation || !draggedTask) return;
-            const handleMouseMove = (event: MouseEvent) => {
-              event.preventDefault();
-              event.stopPropagation();
-              handleDrag(event.clientX);
-            };
-            const handleMouseUp = (event: MouseEvent) => {
-              event.preventDefault();
-              event.stopPropagation();
-              handleDragEnd();
-            };
-            window.addEventListener('mousemove', handleMouseMove, { capture: true });
-            window.addEventListener('mouseup', handleMouseUp, { capture: true });
-            document.body.style.userSelect = 'none';
-            document.body.style.cursor = getCursorStyle(dragOperation);
-            return () => {
-              window.removeEventListener('mousemove', handleMouseMove, { capture: true });
-              window.removeEventListener('mouseup', handleMouseUp, { capture: true });
-              document.body.style.userSelect = '';
-              document.body.style.cursor = '';
-            };
-          }, [dragOperation, draggedTask, handleDrag]);
-
-          // Auto-zoom to fit jobs on first render
-          useEffect(() => {
-            if (initialZoomed) return;
-            if (!ganttTasks.length) return;
-            // Find min/max dates from jobs
-            const minDate = new Date(Math.min(...ganttTasks.map(t => t.start.getTime())));
-            const maxDate = new Date(Math.max(...ganttTasks.map(t => t.end.getTime())));
-            // Always pad by ±3 days for initial view
-            const paddedMin = new Date(minDate.getTime() - 3 * 24 * 60 * 60 * 1000);
-            const paddedMax = new Date(maxDate.getTime() + 3 * 24 * 60 * 60 * 1000);
-            setInitialDomain([paddedMin, paddedMax]);
-            // Calculate the scale factor so the padded domain fits the visible area (excluding margin.left)
-            const domainMs = paddedMax.getTime() - paddedMin.getTime();
-            const scaleX = xMax / domainMs;
-            // Align paddedMin with the left edge of the chart (after margin.left)
-            const minDateX = xScale(paddedMin);
-            zoom.setTransformMatrix({
-              scaleX,
-              scaleY: 1,
-              translateX: margin.left - minDateX * scaleX,
-              translateY: 0,
-              skewX: 0,
-              skewY: 0
-            });
-            setInitialZoomed(true);
-          }, [ganttTasks, xScale, xMax, zoom, initialZoomed]);
-
-          return (
-            <>
-              {/* Zoom controls removed as requested */}
-              <svg 
-                ref={svgRef}
-                width={width} 
-                height={height} 
-                style={{ 
-                  cursor: dragOperation
-                    ? getCursorStyle(dragOperation)
-                    : zoom.isDragging
-                      ? 'grabbing'
-                      : (panning || middlePanning)
-                        ? 'grab'
-                        : 'default',
-                  touchAction: 'none'
-                }} 
-                {...zoom.containerProps}
-                onMouseDown={e => {
-                  // Only start panning if spacebar or middle mouse
-                  if ((panning || middlePanning) && e.button !== 2) {
-                    // Prevent default for middle mouse
-                    if (e.button === 1) e.preventDefault();
-                    zoom.dragStart(e);
-                  }
-                }}
-                onMouseMove={e => {
-                  if (panning || middlePanning) zoom.dragMove(e);
-                }}
-                onMouseUp={e => {
-                  if (panning || middlePanning) zoom.dragEnd(e);
-                }}
-                onMouseLeave={e => {
-                  if (panning || middlePanning) zoom.dragEnd(e);
-                }}
-              >
-                <defs>
-                  <clipPath id="clip">
-                    <rect x={0} y={0} width={xMax} height={rowHeight} />
-                  </clipPath>
-                </defs>
-                <rect x={0} y={0} width={width} height={height} fill="#fff" rx={14} />
-                <Group left={margin.left} top={margin.top}>
-                  <GridColumns scale={zoomedXScale} height={rowHeight} stroke="#e0e0e0" />
-                  <Group clipPath="url(#clip)">
-                    {ganttTasks.map((task: GanttTask) => {
-                      // If this task is currently being dragged, use the draggedTask state instead
-                      // This is crucial for visual feedback during dragging
-                      const renderTask = (draggedTask && draggedTask.id === task.id) ? draggedTask : task;
-                      const y = 0; // All tasks in a single row
-                      // Use zoomedXScale for both start and end
-                      const x = zoomedXScale(renderTask.start);
-                      const barWidth = zoomedXScale(renderTask.end) - x;
-                      const barHeight = rowHeight;
-                      if (barWidth <= 0) return null;
-                      
-                      // Determine if this is the task being dragged
-                      const isDragging = draggedTask && draggedTask.id === task.id;
-                      
-                      return (
-                        <Group key={`bar-group-${task.id}`}>
-                          {/* Task drag handle (top portion) */}
-                          <Bar
-                            key={`drag-handle-${task.id}`}
-                            x={x}
-                            y={y}
-                            width={barWidth}
-                            height={10} // Height of the drag handle
-                            fill={task.color}
-                            opacity={isDragging ? 0.7 : 1}
-                            rx={4} // rounded top corners
-                            ry={0} // square bottom corners
-                            onMouseDown={(event: React.MouseEvent) => onMouseDown(event, task, 'move')}
-                            onMouseMove={(event: React.MouseEvent) => {
-                              if (!dragOperation) {
-                                const point = localPoint(event);
-                                if (!point) return;
-                                showTooltip({
-                                  tooltipData: task,
-                                  tooltipLeft: point.x,
-                                  tooltipTop: point.y,
-                                });
-                              }
-                            }}
-                            onMouseLeave={() => {
-                              if (!dragOperation) hideTooltip();
-                            }}
-                            style={{ cursor: 'grab', touchAction: 'none' }}
-                          />
-                          
-                          {/* Main task bar (clickable body) */}
-                          <Bar
-                            key={`bar-${task.id}`}
-                            x={x}
-                            y={y + 10} // Position below the drag handle
-                            width={barWidth}
-                            height={barHeight - 10} // Reduce height to accommodate drag handle
-                            fill={task.color}
-                            opacity={isDragging ? 0.7 : 0.85} // Slightly lighter than the drag handle
-                            rx={0} // square top corners
-                            ry={4} // rounded bottom corners
-                            onClick={() => {
-                              // Find the original job object from jobs prop
-                              const jobObj = jobs.find(job => job.id === task.job_id);
-                              if (jobObj) onJobClick(jobObj);
-                            }}
-                            onMouseMove={(event: React.MouseEvent) => {
-                              if (!dragOperation) {
-                                const point = localPoint(event);
-                                if (!point) return;
-                                showTooltip({
-                                  tooltipData: task,
-                                  tooltipLeft: point.x,
-                                  tooltipTop: point.y,
-                                });
-                              }
-                            }}
-                            onMouseLeave={() => {
-                              if (!dragOperation) hideTooltip();
-                            }}
-                            style={{ cursor: 'pointer', touchAction: 'none' }}
-                          />
-                          {/* Task information text */}
-                          {barWidth > 30 && (
-                            <>
-                              <text
-                                x={x + 5}
-                                y={y + 25}
-                                fontSize={10}
-                                fontWeight="bold"
-                                fill="white"
-                                style={{ pointerEvents: 'none' }}
-                              >
-                                #{task.job_number}
-                              </text>
-                              {barWidth > 60 && (
-                                <text
-                                  x={x + 5}
-                                  y={y + 38}
-                                  fontSize={9}
-                                  fill="white"
-                                  style={{ pointerEvents: 'none' }}
-                                >
-                                  {task.customer_name}
-                                </text>
-                              )}
-                              {barWidth > 90 && task.company && (
-                                <text
-                                  x={x + 5}
-                                  y={y + 50}
-                                  fontSize={8}
-                                  fill="white"
-                                  style={{ pointerEvents: 'none' }}
-                                >
-                                  {task.company}
-                                </text>
-                              )}
-                            </>
-                          )}
-                          {/* Left resize handle */}
-                          <Bar
-                            key={`handle-start-${task.id}`}
-                            x={x - DRAG_HANDLE_WIDTH / 2}
-                            y={y}
-                            width={DRAG_HANDLE_WIDTH}
-                            height={barHeight}
-                            fill="rgba(0,0,0,0.2)"
-                            rx={2}
-                            onMouseDown={(event: React.MouseEvent) => onMouseDown(event, task, 'resize-start')}
-                            style={{ cursor: 'ew-resize', touchAction: 'none' }}
-                          />
-                          
-                          {/* Right resize handle */}
-                          <Bar
-                            key={`handle-end-${task.id}`}
-                            x={x + barWidth - DRAG_HANDLE_WIDTH / 2}
-                            y={y}
-                            width={DRAG_HANDLE_WIDTH}
-                            height={barHeight}
-                            fill="rgba(0,0,0,0.2)"
-                            rx={2}
-                            onMouseDown={(event: React.MouseEvent) => onMouseDown(event, task, 'resize-end')}
-                            style={{ cursor: 'ew-resize', touchAction: 'none' }}
-                          />
-                        </Group>
-                      );
-                    })}
-                  </Group>
-                </Group>
-                {/* Hour/minute level axis */}
-                <AxisBottom
-                  top={rowHeight + margin.top}
-                  left={margin.left}
-                  scale={zoomedXScale}
-                  stroke="#333"
-                  tickStroke="#333"
-                  tickValues={useMemo(() => {
-                    // Use visx scaleTime().ticks() for dynamic granularity
-                    const domain = zoomedXScale.domain();
-                    const ms = domain[1].getTime() - domain[0].getTime();
-                    if (ms < 2 * 60 * 60 * 1000) {
-                      // <2 hours: show every 5 minutes
-                      return zoomedXScale.ticks(timeMinute.every(5));
-                    } else if (ms < 24 * 60 * 60 * 1000) {
-                      // <1 day: show every hour
-                      return zoomedXScale.ticks(timeHour.every(1));
-                    } else {
-                      // Otherwise, let visx pick
-                      return zoomedXScale.ticks();
-                    }
-                  }, [zoomedXScale])}
-                  tickFormat={(value) => {
-                    const date = value instanceof Date ? value : new Date(Number(value.valueOf()));
-                    const domain = zoomedXScale.domain();
-                    const ms = domain[1].getTime() - domain[0].getTime();
-                    if (ms < 2 * 60 * 60 * 1000) {
-                      // <2 hours: show HH:mm
-                      return date.getHours().toString().padStart(2, '0') + ':' + date.getMinutes().toString().padStart(2, '0');
-                    } else {
-                      // Otherwise just hour
-                      return date.getHours() + ':00';
-                    }
-                  }}
-                  tickLabelProps={() => ({ 
-                    fill: '#333', 
-                    fontSize: 10, 
-                    textAnchor: 'middle' 
-                  })}
-                />
-                {/* Day level axis */}
-                <AxisBottom
-                  top={rowHeight + margin.top + 30}
-                  left={margin.left}
-                  scale={zoomedXScale}
-                  stroke="#333"
-                  tickStroke="#333"
-                  tickFormat={(value) => {
-                    const date = value instanceof Date ? value : new Date(Number(value.valueOf()));
-                    return date.getDate().toString();
-                  }}
-                  tickLabelProps={() => ({ 
-                    fill: '#333', 
-                    fontSize: 11, 
-                    textAnchor: 'middle' 
-                  })}
-                />
-                {/* Month level axis */}
-                <AxisBottom
-                  top={rowHeight + margin.top + 60}
-                  left={margin.left}
-                  scale={zoomedXScale}
-                  tickFormat={(value) => {
-                    const date = value instanceof Date ? value : new Date(Number(value.valueOf()));
-                    return new Intl.DateTimeFormat('en-US', { month: 'short' }).format(date);
-                  }}
-                  stroke="#333"
-                  tickStroke="#333"
-                  tickLabelProps={() => ({ 
-                    fill: '#333', 
-                    fontSize: 12, 
-                    textAnchor: 'middle',
-                    fontWeight: 'bold'
-                  })}
-                />
-              </svg>
-            </>
-          );
-        }}
+        {(zoom) => (
+          <ZoomContent
+            zoom={zoom}
+            ganttTasks={ganttTasks}
+            xMax={xMax}
+            width={width}
+            height={height}
+            panning={panning}
+            middlePanning={middlePanning}
+            dragOperation={dragOperation}
+            draggedTask={draggedTask}
+            dragStartPosition={dragStartPosition}
+            setDraggedTask={setDraggedTask}
+            handleDragEnd={handleDragEnd}
+            getCursorStyle={getCursorStyle}
+            onMouseDown={onMouseDown}
+            showTooltip={showTooltip}
+            hideTooltip={hideTooltip}
+            svgRef={svgRef}
+            xScale={xScale}
+            jobs={jobs}
+            onJobClick={onJobClick}
+            hugeDomain={hugeDomain}
+          />
+        )}
       </Zoom>
       {tooltipData && !dragOperation && (
         <TooltipInPortal top={tooltipTop} left={tooltipLeft} style={tooltipStyles}>
