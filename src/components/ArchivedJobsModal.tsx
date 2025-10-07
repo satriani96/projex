@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Job } from '../types/job';
 import { getArchivedJobs, updateJob } from '../services/jobService';
 
@@ -47,15 +47,40 @@ const ArchivedJobsModal: React.FC<ArchivedJobsModalProps> = ({ isOpen, onClose, 
     }
   };
 
-  const filteredJobs = archivedJobs.filter(job => {
-    const query = searchQuery.toLowerCase();
-    return (
-      job.job_number.toLowerCase().includes(query) ||
-      job.customer_name.toLowerCase().includes(query) ||
-      job.company?.toLowerCase().includes(query) ||
-      job.material?.toLowerCase().includes(query)
-    );
-  });
+  const filteredJobs = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+
+    const includesQuery = (value: unknown) => {
+      if (value == null) {
+        return false;
+      }
+
+      const text = typeof value === 'string' ? value : String(value);
+      return text.toLowerCase().includes(normalizedQuery);
+    };
+
+    return archivedJobs.reduce<Job[]>((acc, job) => {
+      if (!job) {
+        return acc;
+      }
+
+      if (!normalizedQuery) {
+        acc.push(job);
+        return acc;
+      }
+
+      if (
+        includesQuery(job.job_number) ||
+        includesQuery(job.customer_name) ||
+        includesQuery(job.company) ||
+        includesQuery(job.material)
+      ) {
+        acc.push(job);
+      }
+
+      return acc;
+    }, []);
+  }, [archivedJobs, searchQuery]);
 
   if (!isOpen) return null;
 
