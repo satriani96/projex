@@ -13,7 +13,7 @@ interface KanbanBoardProps {
   onSortChange: (status: JobStatus, field: SortField, direction: SortDirection) => void;
 }
 
-const statusOrder: JobStatus[] = KANBAN_STATUS_ORDER;
+const statusOrder = [...KANBAN_STATUS_ORDER];
 
 const KanbanBoard: React.FC<KanbanBoardProps> = ({ jobs, onJobClick, cardSize, sortConfig, onSortChange }) => {
   const jobsByStatus = statusOrder.reduce((acc, status) => {

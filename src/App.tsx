@@ -11,7 +11,7 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { Job, JobStatus, JobFormData } from './types/job';
-import { CardSize, SortConfig, KANBAN_STATUS_ORDER } from './types/kanban';
+import { CardSize, SortConfig, KANBAN_STATUS_SET } from './types/kanban';
 import { getJobs, createJob, updateJob, deleteJob } from './services/jobService';
 import JobForm from './components/JobForm';
 import KanbanBoard from './components/KanbanBoard';
@@ -194,31 +194,37 @@ function App() {
     if (!over) return;
 
     const activeId = String(active.id);
-    const newStatus = (over.data.current?.sortable?.containerId || over.id) as JobStatus;
-    if (!KANBAN_STATUS_ORDER.includes(newStatus)) return;
+    const rawStatus = (over.data.current?.sortable?.containerId || over.id) as string | JobStatus;
+    const normalizedStatus =
+      typeof rawStatus === 'string'
+        ? (rawStatus.replace(/[\s-]+/g, '_') as JobStatus)
+        : rawStatus;
+
+    if (!KANBAN_STATUS_SET.has(normalizedStatus)) return;
 
     setJobs(prevJobs => {
       const activeJob = prevJobs.find(j => String(j.id) === activeId);
-      if (!activeJob || activeJob.status === newStatus) {
+      if (!activeJob || activeJob.status === normalizedStatus) {
         return prevJobs;
       }
 
+      const previousJobs = prevJobs;
       const newJobs = prevJobs.map(job =>
-        String(job.id) === activeId ? { ...job, status: newStatus } : job
+        String(job.id) === activeId ? { ...job, status: normalizedStatus } : job
       );
 
       // Asynchronously update the backend
       (async () => {
-        const result = await updateJob(activeId, { status: newStatus });
+        const result = await updateJob(activeId, { status: normalizedStatus });
         // The service now returns an object with a potential error property
         if (result && 'error' in result) {
           setError(`Failed to move job: ${(result.error as any).message || 'Unknown error'}`);
           // Revert to the original state if the backend update fails
-          setJobs(prevJobs);
+          setJobs(previousJobs);
         }
       })();
 
-            return newJobs;
+      return newJobs;
     });
 
     setActiveJob(null);

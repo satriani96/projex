@@ -10,4 +10,11 @@ export interface SortConfig {
   direction: SortDirection;
 }
 
-export const KANBAN_STATUS_ORDER: JobStatus[] = ['queued', 'in_progress', 'on_hold', 'done'];
+export const KANBAN_STATUS_ORDER: readonly JobStatus[] = [
+  'on_hold',
+  'queued',
+  'in_progress',
+  'done'
+];
+
+export const KANBAN_STATUS_SET = new Set<JobStatus>(KANBAN_STATUS_ORDER);
