@@ -22,6 +22,8 @@ export interface SortConfig {
   direction: SortDirection;
 }
 
+export const KANBAN_STATUS_ORDER: JobStatus[] = ['queued', 'in_progress', 'on_hold', 'done'];
+
 function App() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -104,13 +106,12 @@ function App() {
     if (!searchQuery) {
       return jobs;
     }
-        return jobs.filter(job => {
-      const query = searchQuery.toLowerCase();
-      return (
-        job.customer_name.toLowerCase().includes(query) ||
-        job.job_number.includes(query) // Job number is a string, so 'includes' works well.
-      );
-    });
+    const query = searchQuery.toLowerCase();
+    return jobs.filter(job =>
+      job.customer_name.toLowerCase().includes(query) ||
+      (job.company?.toLowerCase().includes(query) ?? false) ||
+      job.job_number.includes(query) // Job number is a string, so 'includes' works well.
+    );
   }, [jobs, searchQuery]);
   
   // Configure DND sensors at the top level to avoid React hooks rules violation
@@ -198,9 +199,7 @@ function App() {
 
     const activeId = String(active.id);
     const newStatus = (over.data.current?.sortable?.containerId || over.id) as JobStatus;
-    const statusOrder: JobStatus[] = ['queued', 'in_progress', 'on_hold', 'done'];
-
-    if (!statusOrder.includes(newStatus)) return;
+    if (!KANBAN_STATUS_ORDER.includes(newStatus)) return;
 
     setJobs(prevJobs => {
       const activeJob = prevJobs.find(j => String(j.id) === activeId);
@@ -301,7 +300,7 @@ function App() {
         <div className="flex-1 max-w-md">
           <input
             type="text"
-            placeholder="Search by customer or job #..."
+            placeholder="Search by customer, company, or job #..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"

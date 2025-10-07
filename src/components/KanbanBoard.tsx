@@ -3,7 +3,7 @@ import React from 'react';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import type { Job, JobStatus } from '../types/job';
 import KanbanColumn from './KanbanColumn.tsx';
-import { CardSize, SortConfig, SortField, SortDirection } from '../App';
+import { CardSize, SortConfig, SortField, SortDirection, KANBAN_STATUS_ORDER } from '../App';
 
 interface KanbanBoardProps {
   jobs: Job[];
@@ -13,7 +13,7 @@ interface KanbanBoardProps {
   onSortChange: (status: JobStatus, field: SortField, direction: SortDirection) => void;
 }
 
-const statusOrder: JobStatus[] = ['on_hold', 'queued', 'in_progress', 'done'];
+const statusOrder: JobStatus[] = KANBAN_STATUS_ORDER;
 
 const KanbanBoard: React.FC<KanbanBoardProps> = ({ jobs, onJobClick, cardSize, sortConfig, onSortChange }) => {
   const jobsByStatus = statusOrder.reduce((acc, status) => {
