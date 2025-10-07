@@ -87,7 +87,7 @@ function App() {
   const fetchJobs = useCallback(async () => {
     try {
       const fetchedJobs = await getJobs();
-      setJobs(fetchedJobs || []);
+      setJobs((fetchedJobs || []).filter((job): job is Job => Boolean(job)));
     } catch (err) {
       setError('Failed to fetch jobs.');
       console.error(err);
@@ -119,13 +119,9 @@ function App() {
 
     const query = toLowerCaseSafe(searchQuery);
 
-    return jobs.filter(job => {
-      if (!job) {
-        return false;
-      }
-
-      const customerName = toLowerCaseSafe(job.customer_name);
-      const jobNumber = toLowerCaseSafe(job.job_number);
+    return jobs.filter((job): job is Job => Boolean(job)).filter(job => {
+      const customerName = toLowerCaseSafe(job?.customer_name);
+      const jobNumber = toLowerCaseSafe(job?.job_number);
 
       return (
         customerName.includes(query) ||

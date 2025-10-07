@@ -25,7 +25,7 @@ const ArchivedJobsModal: React.FC<ArchivedJobsModalProps> = ({ isOpen, onClose, 
     setError(null);
     try {
       const jobs = await getArchivedJobs();
-      setArchivedJobs(jobs);
+      setArchivedJobs((jobs || []).filter((job): job is Job => Boolean(job)));
     } catch (err) {
       setError('Failed to fetch archived jobs.');
       console.error(err);
@@ -64,21 +64,17 @@ const ArchivedJobsModal: React.FC<ArchivedJobsModalProps> = ({ isOpen, onClose, 
 
     const includesQuery = (value: unknown) => toLowerCaseSafe(value).includes(normalizedQuery);
 
-    return archivedJobs.reduce<Job[]>((acc, job) => {
-      if (!job) {
-        return acc;
-      }
-
+    return archivedJobs.filter((job): job is Job => Boolean(job)).reduce<Job[]>((acc, job) => {
       if (!normalizedQuery) {
         acc.push(job);
         return acc;
       }
 
       if (
-        includesQuery(job.job_number) ||
-        includesQuery(job.customer_name) ||
-        includesQuery(job.company) ||
-        includesQuery(job.material)
+        includesQuery(job?.job_number) ||
+        includesQuery(job?.customer_name) ||
+        includesQuery(job?.company) ||
+        includesQuery(job?.material)
       ) {
         acc.push(job);
       }
