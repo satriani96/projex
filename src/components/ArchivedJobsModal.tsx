@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Job } from '../types/job';
 import { getArchivedJobs, updateJob } from '../services/jobService';
 
@@ -47,17 +47,22 @@ const ArchivedJobsModal: React.FC<ArchivedJobsModalProps> = ({ isOpen, onClose, 
     }
   };
 
+  const toLowerCaseSafe = useCallback((value: unknown) => {
+    if (value == null) {
+      return '';
+    }
+
+    if (typeof value === 'string') {
+      return value.toLowerCase();
+    }
+
+    return String(value).toLowerCase();
+  }, []);
+
   const filteredJobs = useMemo(() => {
-    const normalizedQuery = searchQuery.trim().toLowerCase();
+    const normalizedQuery = toLowerCaseSafe(searchQuery).trim();
 
-    const includesQuery = (value: unknown) => {
-      if (value == null) {
-        return false;
-      }
-
-      const text = typeof value === 'string' ? value : String(value);
-      return text.toLowerCase().includes(normalizedQuery);
-    };
+    const includesQuery = (value: unknown) => toLowerCaseSafe(value).includes(normalizedQuery);
 
     return archivedJobs.reduce<Job[]>((acc, job) => {
       if (!job) {
@@ -80,7 +85,7 @@ const ArchivedJobsModal: React.FC<ArchivedJobsModalProps> = ({ isOpen, onClose, 
 
       return acc;
     }, []);
-  }, [archivedJobs, searchQuery]);
+  }, [archivedJobs, searchQuery, toLowerCaseSafe]);
 
   if (!isOpen) return null;
 

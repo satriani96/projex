@@ -100,23 +100,39 @@ function App() {
     fetchJobs();
   }, [fetchJobs]);
 
+  const toLowerCaseSafe = useCallback((value: unknown) => {
+    if (value == null) {
+      return '';
+    }
+
+    if (typeof value === 'string') {
+      return value.toLowerCase();
+    }
+
+    return String(value).toLowerCase();
+  }, []);
+
   const filteredJobs = useMemo(() => {
     if (!searchQuery) {
       return jobs;
     }
 
-    const query = searchQuery.toLowerCase();
+    const query = toLowerCaseSafe(searchQuery);
 
     return jobs.filter(job => {
-      const customerName = String(job.customer_name || '').toLowerCase();
-      const jobNumber = String(job.job_number || '').toLowerCase();
+      if (!job) {
+        return false;
+      }
+
+      const customerName = toLowerCaseSafe(job.customer_name);
+      const jobNumber = toLowerCaseSafe(job.job_number);
 
       return (
         customerName.includes(query) ||
         jobNumber.includes(query)
       );
     });
-  }, [jobs, searchQuery]);
+  }, [jobs, searchQuery, toLowerCaseSafe]);
   
   // Configure DND sensors at the top level to avoid React hooks rules violation
   const sensors = useSensors(
