@@ -9,8 +9,7 @@ import { useTooltip, useTooltipInPortal, defaultStyles } from '@visx/tooltip';
 import { localPoint } from '@visx/event';
 import { Zoom } from '@visx/zoom';
 import { timeMinute, timeHour } from 'd3-time';
-import type { ScaleTime } from 'd3-scale';
-import type { ProvidedZoom, ZoomState } from '@visx/zoom/lib/types';
+import type { ProvidedZoom, TransformMatrix } from '@visx/zoom/lib/types';
 
 interface GanttChartProps {
   jobs: Job[];
@@ -40,6 +39,15 @@ interface DragStartSnapshot {
   endDate: Date;
 }
 
+type TimeScale = ReturnType<typeof scaleTime<number>>;
+
+type ZoomRenderState = ProvidedZoom<SVGSVGElement> & {
+  initialTransformMatrix: TransformMatrix;
+  transformMatrix: TransformMatrix;
+  isDragging: boolean;
+  containerProps?: React.SVGProps<SVGSVGElement>;
+};
+
 const margin = { top: 20, right: 60, bottom: 100, left: 60 };
 const DRAG_HANDLE_WIDTH = 8;
 
@@ -53,7 +61,7 @@ const tooltipStyles = {
 };
 
 interface GanttZoomContentProps {
-  zoom: ProvidedZoom<SVGSVGElement> & ZoomState;
+  zoom: ZoomRenderState;
   width: number;
   height: number;
   rowHeight: number;
@@ -61,8 +69,8 @@ interface GanttZoomContentProps {
   margin: typeof margin;
   ganttTasks: GanttTask[];
   hugeDomain: [Date, Date];
-  xScale: ScaleTime<number, number>;
-  svgRef: React.RefObject<SVGSVGElement | null>;
+  xScale: TimeScale;
+  svgRef: React.MutableRefObject<SVGSVGElement | null>;
   jobs: Job[];
   onJobClick: (job: Job) => void;
   onMouseDown: (event: React.MouseEvent, task: GanttTask, operation: DragOperation) => void;
@@ -175,12 +183,13 @@ const GanttZoomContent: React.FC<GanttZoomContentProps> = ({
 
   useEffect(() => {
     const originalDragMove = zoom.dragMove;
-    zoom.dragMove = (event: MouseEvent | React.MouseEvent) => {
+    zoom.dragMove = (event: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) => {
       if (!zoom.isDragging) {
         return;
       }
-      const movementX = 'movementX' in event ? event.movementX : 0;
-      handlePan(movementX);
+      if ('movementX' in event && typeof event.movementX === 'number') {
+        handlePan(event.movementX);
+      }
     };
 
     return () => {
@@ -316,17 +325,25 @@ const GanttZoomContent: React.FC<GanttZoomContentProps> = ({
         ? 'grab'
         : 'default';
 
+  const setSvgElement = useCallback((node: SVGSVGElement | null) => {
+    svgRef.current = node;
+    const containerRef = zoom.containerRef as React.MutableRefObject<SVGSVGElement | null> | undefined;
+    if (containerRef) {
+      containerRef.current = node;
+    }
+  }, [svgRef, zoom]);
+
   return (
     <>
       <svg
-        ref={svgRef}
+        ref={setSvgElement}
         width={width}
         height={height}
         style={{
           cursor: svgCursor,
           touchAction: 'none',
         }}
-        {...zoom.containerProps}
+        {...(zoom.containerProps ?? {})}
         onMouseDown={(event) => {
           if ((panning || middlePanning) && event.button !== 2) {
             if (event.button === 1) {
@@ -340,14 +357,14 @@ const GanttZoomContent: React.FC<GanttZoomContentProps> = ({
             zoom.dragMove(event);
           }
         }}
-        onMouseUp={(event) => {
+        onMouseUp={() => {
           if (panning || middlePanning) {
-            zoom.dragEnd(event);
+            zoom.dragEnd();
           }
         }}
-        onMouseLeave={(event) => {
+        onMouseLeave={() => {
           if (panning || middlePanning) {
-            zoom.dragEnd(event);
+            zoom.dragEnd();
           }
         }}
       >
@@ -679,7 +696,7 @@ const GanttChart: React.FC<GanttChartProps> = ({
 
   const xMax = width - margin.left - margin.right;
 
-  const xScale = useMemo(() => scaleTime<number>({
+  const xScale = useMemo<TimeScale>(() => scaleTime<number>({
     domain: hugeDomain,
     range: [0, xMax],
   }), [xMax, hugeDomain]);
