@@ -3,7 +3,7 @@ import React from 'react';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import type { Job, JobStatus } from '../types/job';
 import KanbanColumn from './KanbanColumn.tsx';
-import { CardSize, SortConfig, SortField, SortDirection, KANBAN_STATUS_ORDER } from '../App';
+import { CardSize, SortConfig, SortField, SortDirection, KANBAN_STATUS_ORDER } from '../types/kanban';
 
 interface KanbanBoardProps {
   jobs: Job[];

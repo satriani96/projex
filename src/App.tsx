@@ -1,6 +1,17 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { DndContext, DragOverlay, DragStartEvent, DragEndEvent, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
+import {
+  DndContext,
+  DragOverlay,
+  DragStartEvent,
+  DragEndEvent,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
 import { Job, JobStatus, JobFormData } from './types/job';
+import { CardSize, SortConfig, KANBAN_STATUS_ORDER } from './types/kanban';
 import { getJobs, createJob, updateJob, deleteJob } from './services/jobService';
 import JobForm from './components/JobForm';
 import KanbanBoard from './components/KanbanBoard';
@@ -8,21 +19,6 @@ import JobCard from './components/JobCard';
 import GanttChart from './components/GanttChart';
 import ArchivedJobsModal from './components/ArchivedJobsModal';
 import logo from './assets/logo.jpg';
-
-// Card size type for job cards
-export type CardSize = 'compact' | 'medium' | 'large';
-
-// Sort field type for jobs in kanban columns
-export type SortField = 'job_number' | 'customer_name' | 'due_date';
-export type SortDirection = 'asc' | 'desc';
-
-// Define sort configuration for job columns
-export interface SortConfig {
-  field: SortField;
-  direction: SortDirection;
-}
-
-export const KANBAN_STATUS_ORDER: JobStatus[] = ['queued', 'in_progress', 'on_hold', 'done'];
 
 function App() {
   const [jobs, setJobs] = useState<Job[]>([]);

@@ -2,7 +2,7 @@ import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { Job } from '../types/job';
-import { CardSize } from '../App';
+import { CardSize } from '../types/kanban';
 
 interface JobCardProps {
   job: Job;
