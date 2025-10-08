@@ -16,7 +16,13 @@ interface KanbanColumnProps {
 }
 
 const KanbanColumn: React.FC<KanbanColumnProps> = ({ status, title, jobs, onJobClick, cardSize, sortConfig, onSortChange }) => {
-  const { setNodeRef } = useDroppable({ id: status });
+  const { setNodeRef } = useDroppable({
+    id: status,
+    data: {
+      type: 'column',
+      status,
+    },
+  });
 
   const jobIds = useMemo(() => jobs.map(j => String(j.id)), [jobs]);
 

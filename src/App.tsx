@@ -20,6 +20,45 @@ import GanttChart from './components/GanttChart';
 import ArchivedJobsModal from './components/ArchivedJobsModal';
 import logo from './assets/logo.jpg';
 
+type DropMeta = {
+  status?: string | JobStatus;
+  columnStatus?: string | JobStatus;
+  sortable?: {
+    containerId?: string | JobStatus;
+  };
+  droppable?: {
+    id?: string | JobStatus;
+  };
+};
+
+const resolveDropTargetStatus = (over: DragEndEvent['over']): JobStatus | null => {
+  if (!over) {
+    return null;
+  }
+
+  const current = over.data?.current as DropMeta | undefined;
+
+  const candidates: Array<string | JobStatus | null | undefined> = [
+    current?.status,
+    current?.columnStatus,
+    current?.sortable?.containerId,
+    current?.droppable?.id,
+  ];
+
+  if (typeof over.id === 'string' || typeof over.id === 'number') {
+    candidates.push(String(over.id));
+  }
+
+  for (const candidate of candidates) {
+    const normalized = normalizeJobStatus(candidate ?? null);
+    if (normalized && KANBAN_STATUS_SET.has(normalized)) {
+      return normalized;
+    }
+  }
+
+  return null;
+};
+
 function App() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -191,18 +230,16 @@ function App() {
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over) return;
+
+    if (!over) {
+      setActiveJob(null);
+      return;
+    }
 
     const activeId = String(active.id);
-    const rawStatus = (
-      over.data.current?.sortable?.containerId ??
-      over.data.current?.droppable?.id ??
-      over.id
-    ) as string | JobStatus | undefined;
+    const normalizedStatus = resolveDropTargetStatus(over);
 
-    const normalizedStatus = normalizeJobStatus(rawStatus);
-
-    if (!normalizedStatus || !KANBAN_STATUS_SET.has(normalizedStatus)) {
+    if (!normalizedStatus) {
       setActiveJob(null);
       return;
     }
@@ -218,13 +255,12 @@ function App() {
         String(job.id) === activeId ? { ...job, status: normalizedStatus } : job
       );
 
-      // Asynchronously update the backend
       (async () => {
-        const result = await updateJob(activeId, { status: normalizedStatus });
-        // The service now returns an object with a potential error property
-        if (result && 'error' in result) {
-          setError(`Failed to move job: ${(result.error as any).message || 'Unknown error'}`);
-          // Revert to the original state if the backend update fails
+        try {
+          await updateJob(activeId, { status: normalizedStatus });
+        } catch (err) {
+          console.error(err);
+          setError(`Failed to move job: ${err instanceof Error ? err.message : 'Unknown error'}`);
           setJobs(previousJobs);
         }
       })();
