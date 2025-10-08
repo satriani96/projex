@@ -9,6 +9,6 @@ export default defineConfig({
     tailwindcss()
   ],
   optimizeDeps: {
-    include: ['fabric'],
+    exclude: ['fabric'],
   },
 });

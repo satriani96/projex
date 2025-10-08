@@ -1,12 +1,15 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   DndContext,
   DragOverlay,
   DragStartEvent,
   DragEndEvent,
   closestCenter,
+  CollisionDetection,
   PointerSensor,
   TouchSensor,
+  pointerWithin,
+  rectIntersection,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
@@ -31,22 +34,29 @@ type DropMeta = {
   };
 };
 
-const resolveDropTargetStatus = (over: DragEndEvent['over']): JobStatus | null => {
-  if (!over) {
-    return null;
+const resolveDropTargetStatus = (
+  over: DragEndEvent['over'],
+  fallbackId?: string | null
+): JobStatus | null => {
+  const candidates: Array<string | JobStatus | null | undefined> = [];
+
+  if (over) {
+    const current = over.data?.current as DropMeta | undefined;
+
+    candidates.push(
+      current?.status,
+      current?.columnStatus,
+      current?.sortable?.containerId,
+      current?.droppable?.id,
+    );
+
+    if (typeof over.id === 'string' || typeof over.id === 'number') {
+      candidates.push(String(over.id));
+    }
   }
 
-  const current = over.data?.current as DropMeta | undefined;
-
-  const candidates: Array<string | JobStatus | null | undefined> = [
-    current?.status,
-    current?.columnStatus,
-    current?.sortable?.containerId,
-    current?.droppable?.id,
-  ];
-
-  if (typeof over.id === 'string' || typeof over.id === 'number') {
-    candidates.push(String(over.id));
+  if (fallbackId) {
+    candidates.push(fallbackId);
   }
 
   for (const candidate of candidates) {
@@ -68,6 +78,33 @@ function App() {
   const [activeJob, setActiveJob] = useState<Job | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
+  const lastOverId = useRef<string | null>(null);
+
+  const collisionDetectionStrategy = useCallback<CollisionDetection>((args) => {
+    const pointerCollisions = pointerWithin(args);
+    if (pointerCollisions.length > 0) {
+      lastOverId.current = String(pointerCollisions[0].id);
+      return pointerCollisions;
+    }
+
+    const intersections = rectIntersection(args);
+    if (intersections.length > 0) {
+      lastOverId.current = String(intersections[0].id);
+      return intersections;
+    }
+
+    const closest = closestCenter(args);
+    if (closest.length > 0) {
+      lastOverId.current = String(closest[0].id);
+      return closest;
+    }
+
+    if (lastOverId.current) {
+      return [{ id: lastOverId.current }];
+    }
+
+    return [];
+  }, [lastOverId]);
   
   // Sort configuration for each column (status)
   const [sortConfig, setSortConfig] = useState<Record<JobStatus, SortConfig>>(() => {
@@ -220,27 +257,24 @@ function App() {
     }
   };
 
-    const handleDragStart = (event: DragStartEvent) => {
+  const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
     const job = jobs.find(j => String(j.id) === String(active.id));
     if (job) {
       setActiveJob(job);
     }
+    lastOverId.current = null;
   };
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
 
-    if (!over) {
-      setActiveJob(null);
-      return;
-    }
-
     const activeId = String(active.id);
-    const normalizedStatus = resolveDropTargetStatus(over);
+    const normalizedStatus = resolveDropTargetStatus(over, lastOverId.current);
 
     if (!normalizedStatus) {
       setActiveJob(null);
+      lastOverId.current = null;
       return;
     }
 
@@ -269,7 +303,8 @@ function App() {
     });
 
     setActiveJob(null);
-  }, [setError]);
+    lastOverId.current = null;
+  }, [lastOverId, setError]);
 
   const handleCancelForm = () => {
     setIsFormVisible(false);
@@ -377,7 +412,7 @@ function App() {
           viewMode === 'kanban' ? (
             <DndContext
               sensors={sensors}
-              collisionDetection={closestCenter}
+              collisionDetection={collisionDetectionStrategy}
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
             >

@@ -8,6 +8,7 @@ export interface Job {
   job_number: string;
   customer_name: string;
   company: string;
+  po_number: string | null;
   address: string;
   phone_number: string;
   email: string;
@@ -29,6 +30,7 @@ export interface Job {
 export interface JobFormData {
   customer_name: string;
   company: string;
+  po_number: string | null;
   address: string;
   phone_number: string;
   email: string;
