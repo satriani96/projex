@@ -11,7 +11,7 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { Job, JobStatus, JobFormData } from './types/job';
-import { CardSize, SortConfig, KANBAN_STATUS_SET } from './types/kanban';
+import { CardSize, SortConfig, KANBAN_STATUS_SET, normalizeJobStatus } from './types/kanban';
 import { getJobs, createJob, updateJob, deleteJob } from './services/jobService';
 import JobForm from './components/JobForm';
 import KanbanBoard from './components/KanbanBoard';
@@ -194,17 +194,22 @@ function App() {
     if (!over) return;
 
     const activeId = String(active.id);
-    const rawStatus = (over.data.current?.sortable?.containerId || over.id) as string | JobStatus;
-    const normalizedStatus =
-      typeof rawStatus === 'string'
-        ? (rawStatus.replace(/[\s-]+/g, '_') as JobStatus)
-        : rawStatus;
+    const rawStatus = (
+      over.data.current?.sortable?.containerId ??
+      over.data.current?.droppable?.id ??
+      over.id
+    ) as string | JobStatus | undefined;
 
-    if (!KANBAN_STATUS_SET.has(normalizedStatus)) return;
+    const normalizedStatus = normalizeJobStatus(rawStatus);
+
+    if (!normalizedStatus || !KANBAN_STATUS_SET.has(normalizedStatus)) {
+      setActiveJob(null);
+      return;
+    }
 
     setJobs(prevJobs => {
       const activeJob = prevJobs.find(j => String(j.id) === activeId);
-      if (!activeJob || activeJob.status === normalizedStatus) {
+      if (!activeJob || normalizeJobStatus(activeJob.status) === normalizedStatus) {
         return prevJobs;
       }
 
