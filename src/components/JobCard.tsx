@@ -2,7 +2,7 @@ import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { Job } from '../types/job';
-import { CardSize } from '../App';
+import { CardSize, normalizeJobStatus } from '../types/kanban';
 
 interface JobCardProps {
   job: Job;
@@ -31,7 +31,13 @@ const JobCard: React.FC<JobCardProps> = ({ job, onClick, cardSize = 'medium' }) 
   };
   
   const daysUntilDue = calculateDaysUntilDue();
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: String(job.id) });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: String(job.id),
+    data: {
+      type: 'card',
+      status: normalizeJobStatus(job.status) ?? job.status,
+    },
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),

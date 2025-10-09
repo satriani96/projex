@@ -1,6 +1,20 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { DndContext, DragOverlay, DragStartEvent, DragEndEvent, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import {
+  DndContext,
+  DragOverlay,
+  DragStartEvent,
+  DragEndEvent,
+  closestCenter,
+  CollisionDetection,
+  PointerSensor,
+  TouchSensor,
+  pointerWithin,
+  rectIntersection,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
 import { Job, JobStatus, JobFormData } from './types/job';
+import { CardSize, SortConfig, KANBAN_STATUS_SET, normalizeJobStatus } from './types/kanban';
 import { getJobs, createJob, updateJob, deleteJob } from './services/jobService';
 import JobForm from './components/JobForm';
 import KanbanBoard from './components/KanbanBoard';
@@ -9,18 +23,51 @@ import GanttChart from './components/GanttChart';
 import ArchivedJobsModal from './components/ArchivedJobsModal';
 import logo from './assets/logo.jpg';
 
-// Card size type for job cards
-export type CardSize = 'compact' | 'medium' | 'large';
+type DropMeta = {
+  status?: string | JobStatus;
+  columnStatus?: string | JobStatus;
+  sortable?: {
+    containerId?: string | JobStatus;
+  };
+  droppable?: {
+    id?: string | JobStatus;
+  };
+};
 
-// Sort field type for jobs in kanban columns
-export type SortField = 'job_number' | 'customer_name' | 'due_date';
-export type SortDirection = 'asc' | 'desc';
+const resolveDropTargetStatus = (
+  over: DragEndEvent['over'],
+  fallbackId?: string | null
+): JobStatus | null => {
+  const candidates: Array<string | JobStatus | null | undefined> = [];
 
-// Define sort configuration for job columns
-export interface SortConfig {
-  field: SortField;
-  direction: SortDirection;
-}
+  if (over) {
+    const current = over.data?.current as DropMeta | undefined;
+
+    candidates.push(
+      current?.status,
+      current?.columnStatus,
+      current?.sortable?.containerId,
+      current?.droppable?.id,
+    );
+
+    if (typeof over.id === 'string' || typeof over.id === 'number') {
+      candidates.push(String(over.id));
+    }
+  }
+
+  if (fallbackId) {
+    candidates.push(fallbackId);
+  }
+
+  for (const candidate of candidates) {
+    const normalized = normalizeJobStatus(candidate ?? null);
+    if (normalized && KANBAN_STATUS_SET.has(normalized)) {
+      return normalized;
+    }
+  }
+
+  return null;
+};
 
 function App() {
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -31,6 +78,33 @@ function App() {
   const [activeJob, setActiveJob] = useState<Job | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
+  const lastOverId = useRef<string | null>(null);
+
+  const collisionDetectionStrategy = useCallback<CollisionDetection>((args) => {
+    const pointerCollisions = pointerWithin(args);
+    if (pointerCollisions.length > 0) {
+      lastOverId.current = String(pointerCollisions[0].id);
+      return pointerCollisions;
+    }
+
+    const intersections = rectIntersection(args);
+    if (intersections.length > 0) {
+      lastOverId.current = String(intersections[0].id);
+      return intersections;
+    }
+
+    const closest = closestCenter(args);
+    if (closest.length > 0) {
+      lastOverId.current = String(closest[0].id);
+      return closest;
+    }
+
+    if (lastOverId.current) {
+      return [{ id: lastOverId.current }];
+    }
+
+    return [];
+  }, [lastOverId]);
   
   // Sort configuration for each column (status)
   const [sortConfig, setSortConfig] = useState<Record<JobStatus, SortConfig>>(() => {
@@ -104,13 +178,12 @@ function App() {
     if (!searchQuery) {
       return jobs;
     }
-        return jobs.filter(job => {
-      const query = searchQuery.toLowerCase();
-      return (
-        job.customer_name.toLowerCase().includes(query) ||
-        job.job_number.includes(query) // Job number is a string, so 'includes' works well.
-      );
-    });
+    const query = searchQuery.toLowerCase();
+    return jobs.filter(job =>
+      job.customer_name.toLowerCase().includes(query) ||
+      (job.company?.toLowerCase().includes(query) ?? false) ||
+      job.job_number.includes(query) // Job number is a string, so 'includes' works well.
+    );
   }, [jobs, searchQuery]);
   
   // Configure DND sensors at the top level to avoid React hooks rules violation
@@ -184,50 +257,54 @@ function App() {
     }
   };
 
-    const handleDragStart = (event: DragStartEvent) => {
+  const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
     const job = jobs.find(j => String(j.id) === String(active.id));
     if (job) {
       setActiveJob(job);
     }
+    lastOverId.current = null;
   };
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over) return;
 
     const activeId = String(active.id);
-    const newStatus = (over.data.current?.sortable?.containerId || over.id) as JobStatus;
-    const statusOrder: JobStatus[] = ['queued', 'in_progress', 'on_hold', 'done'];
+    const normalizedStatus = resolveDropTargetStatus(over, lastOverId.current);
 
-    if (!statusOrder.includes(newStatus)) return;
+    if (!normalizedStatus) {
+      setActiveJob(null);
+      lastOverId.current = null;
+      return;
+    }
 
     setJobs(prevJobs => {
       const activeJob = prevJobs.find(j => String(j.id) === activeId);
-      if (!activeJob || activeJob.status === newStatus) {
+      if (!activeJob || normalizeJobStatus(activeJob.status) === normalizedStatus) {
         return prevJobs;
       }
 
+      const previousJobs = prevJobs;
       const newJobs = prevJobs.map(job =>
-        String(job.id) === activeId ? { ...job, status: newStatus } : job
+        String(job.id) === activeId ? { ...job, status: normalizedStatus } : job
       );
 
-      // Asynchronously update the backend
       (async () => {
-        const result = await updateJob(activeId, { status: newStatus });
-        // The service now returns an object with a potential error property
-        if (result && 'error' in result) {
-          setError(`Failed to move job: ${(result.error as any).message || 'Unknown error'}`);
-          // Revert to the original state if the backend update fails
-          setJobs(prevJobs);
+        try {
+          await updateJob(activeId, { status: normalizedStatus });
+        } catch (err) {
+          console.error(err);
+          setError(`Failed to move job: ${err instanceof Error ? err.message : 'Unknown error'}`);
+          setJobs(previousJobs);
         }
       })();
 
-            return newJobs;
+      return newJobs;
     });
 
     setActiveJob(null);
-  }, [setError]);
+    lastOverId.current = null;
+  }, [lastOverId, setError]);
 
   const handleCancelForm = () => {
     setIsFormVisible(false);
@@ -301,7 +378,7 @@ function App() {
         <div className="flex-1 max-w-md">
           <input
             type="text"
-            placeholder="Search by customer or job #..."
+            placeholder="Search by customer, company, or job #..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -335,7 +412,7 @@ function App() {
           viewMode === 'kanban' ? (
             <DndContext
               sensors={sensors}
-              collisionDetection={closestCenter}
+              collisionDetection={collisionDetectionStrategy}
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
             >

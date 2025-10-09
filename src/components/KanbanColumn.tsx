@@ -3,7 +3,7 @@ import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import type { Job, JobStatus } from '../types/job';
 import JobCard from './JobCard';
-import { CardSize, SortConfig, SortField, SortDirection } from '../App';
+import { CardSize, SortConfig, SortField, SortDirection } from '../types/kanban';
 
 interface KanbanColumnProps {
   status: JobStatus;
@@ -16,7 +16,13 @@ interface KanbanColumnProps {
 }
 
 const KanbanColumn: React.FC<KanbanColumnProps> = ({ status, title, jobs, onJobClick, cardSize, sortConfig, onSortChange }) => {
-  const { setNodeRef } = useDroppable({ id: status });
+  const { setNodeRef } = useDroppable({
+    id: status,
+    data: {
+      type: 'column',
+      status,
+    },
+  });
 
   const jobIds = useMemo(() => jobs.map(j => String(j.id)), [jobs]);
 

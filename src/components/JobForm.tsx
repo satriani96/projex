@@ -26,6 +26,7 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
   const [formData, setFormData] = useState<JobFormData>({
     customer_name: job?.customer_name || '',
     company: job?.company || '',
+    po_number: job?.po_number || '',
     address: job?.address || '',
     phone_number: job?.phone_number || '',
     email: job?.email || '',
@@ -40,9 +41,10 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
 
   // Initialize original form data and track changes
   useEffect(() => {
-    const initialData = {
+    const initialData: JobFormData = {
       customer_name: job?.customer_name || '',
       company: job?.company || '',
+      po_number: job?.po_number || '',
       address: job?.address || '',
       phone_number: job?.phone_number || '',
       email: job?.email || '',
@@ -95,8 +97,10 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const trimmedPo = formData.po_number?.trim();
     const data: JobFormData = {
       ...formData,
+      po_number: trimmedPo ? trimmedPo : null,
       job_start: formData.job_start ? new Date(formData.job_start).toISOString() : null,
       job_end: formData.job_end ? new Date(formData.job_end).toISOString() : null,
     };
@@ -192,6 +196,7 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
                   <p><strong>Due Date:</strong> ${printData.due_date || 'N/A'}</p>
                   <p><strong>Material:</strong> ${printData.material || 'N/A'}</p>
                   <p><strong>Status:</strong> ${(printData.status || '').replace('_', ' ')}</p>
+                  <p><strong>PO Number:</strong> ${printData.po_number || 'N/A'}</p>
                 </div>
               </div>
               <div class="section full-width">
@@ -340,6 +345,18 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
                 <div>
                   <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-1">Company</label>
                   <input id="company" name="company" value={formData.company} onChange={handleChange} placeholder="e.g., ABC Corporation" className="px-3 py-2 text-sm block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
+                </div>
+                {/* PO Number */}
+                <div>
+                  <label htmlFor="po_number" className="block text-sm font-medium text-gray-700 mb-1">PO Number</label>
+                  <input
+                    id="po_number"
+                    name="po_number"
+                    value={formData.po_number ?? ''}
+                    onChange={handleChange}
+                    placeholder="e.g., PO-12345"
+                    className="px-3 py-2 text-sm block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  />
                 </div>
                 {/* Customer Name */}
                 <div>
