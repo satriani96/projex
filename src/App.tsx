@@ -252,12 +252,13 @@ function App() {
 
   return (
     <div className="h-screen bg-gray-50 text-gray-800 flex flex-col">
-            <header className="flex justify-between items-center p-4 bg-white border-b border-gray-200 gap-4">
-        <div className="flex items-center gap-3">
-          <img src={logo} alt="Projex Logo" className="h-8 w-auto" />
-          <h1 className="text-2xl font-bold text-gray-900">Projex</h1>
+            <header className="flex flex-col gap-3 p-4 bg-white border-b border-gray-200 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+        <div className="flex min-w-0 items-center justify-between gap-3 lg:contents">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
+          <img src={logo} alt="Projex Logo" className="h-8 w-auto shrink-0" />
+          <h1 className="text-2xl font-bold text-gray-900 shrink-0">Projex</h1>
           
-          <div className="flex rounded-md overflow-hidden border border-gray-300 ml-4">
+          <div className="flex rounded-md overflow-hidden border border-gray-300 sm:ml-2 lg:ml-4">
             <button 
               onClick={() => setViewMode('kanban')} 
               className={`px-3 py-1 text-sm ${viewMode === 'kanban' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
@@ -273,7 +274,7 @@ function App() {
           </div>
           
           {viewMode === 'kanban' && (
-            <div className="flex rounded-md overflow-hidden border border-gray-300 ml-4">
+            <div className="flex rounded-md overflow-hidden border border-gray-300 sm:ml-2 lg:ml-4">
               <button 
                 onClick={() => setCardSize('compact')} 
                 className={`px-3 py-1 text-sm ${cardSize === 'compact' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
@@ -298,19 +299,11 @@ function App() {
             </div>
           )}
         </div>
-        <div className="flex-1 max-w-md">
-          <input
-            type="text"
-            placeholder="Search by customer or job #..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+        <div className="flex shrink-0 items-center gap-2">
         {/* Archive Button */}
         <button 
           onClick={() => setIsArchiveModalOpen(true)}
-          className="p-1.5 rounded-md text-gray-500 hover:bg-gray-200 hover:text-gray-700 flex items-center mr-2"
+          className="p-1.5 rounded-md text-gray-500 hover:bg-gray-200 hover:text-gray-700 flex items-center"
           title="View Archived Jobs"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
@@ -326,6 +319,17 @@ function App() {
         >
           + New Job
         </button>
+        </div>
+        </div>
+        <div className="w-full min-w-0 lg:flex-1 lg:max-w-md">
+          <input
+            type="text"
+            placeholder="Search by customer or job #..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full min-w-0 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
       </header>
       <main className="p-4 flex-1 overflow-y-auto relative">
         {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">{error}</div>}
@@ -362,9 +366,9 @@ function App() {
 
         {isFormVisible && (
           <div 
-            className="fixed inset-0 bg-black/20 backdrop-blur-sm flex justify-center items-center z-50 p-4"
+            className="fixed inset-0 bg-black/20 backdrop-blur-sm flex justify-center items-center z-50 p-4 overflow-y-auto overscroll-contain"
           >
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div className="my-auto flex max-h-[min(90vh,100dvh-2rem)] min-h-0 w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
               <JobForm
                 job={selectedJob}
                 onSubmit={handleFormSubmit}

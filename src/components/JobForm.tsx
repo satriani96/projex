@@ -242,7 +242,7 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col h-full bg-white rounded-lg">
+    <form onSubmit={handleSubmit} className="flex min-h-0 max-h-full flex-1 flex-col bg-white rounded-lg">
       <div className="flex justify-between items-center p-2 border-b flex-shrink-0">
         <div className="flex items-center space-x-3">
           <h2 className="text-md font-semibold text-gray-800">
@@ -327,7 +327,7 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
         <div className="p-6">
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
