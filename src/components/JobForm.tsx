@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { Job, JobFormData, JobStatus } from '../types/job';
+import {
+  buildWorksOrderInnerHtml,
+  downloadWorksOrderPdf,
+  openWorksOrderBrowserPrint,
+  type WorksOrderExportData,
+} from '../utils/worksOrderExport';
 import SketchPadModal from './SketchPadModal';
 import { exportToBlob, getCommonBounds } from '@excalidraw/excalidraw';
 import type { ExcalidrawElement } from '@excalidraw/excalidraw/element/types';
@@ -104,120 +110,75 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
     setHasUnsavedChanges(false);
   };
 
-  const handlePrint = async () => {
-    if (!job) return;
+  const buildSketchSectionHtml = async (): Promise<string> => {
+    if (!formData.sketch_data) return '';
+    try {
+      const sketchData: { elements: readonly ExcalidrawElement[]; appState: Partial<AppState> } = JSON.parse(formData.sketch_data);
+      if (!sketchData.elements?.length) return '';
 
-    const printData = { ...formData, ...job };
+      const [minX, minY, maxX, maxY] = getCommonBounds(sketchData.elements);
+      const padding = 20;
+      const width = maxX - minX + padding * 2;
+      const height = maxY - minY + padding * 2;
 
-    let sketchImageHtml = '';
-    if (formData.sketch_data) {
-      try {
-        const sketchData: { elements: readonly ExcalidrawElement[]; appState: Partial<AppState> } = JSON.parse(formData.sketch_data);
-        if (sketchData.elements && sketchData.elements.length > 0) {
-          const [minX, minY, maxX, maxY] = getCommonBounds(sketchData.elements);
-          const padding = 20;
-          const width = (maxX - minX) + padding * 2;
-          const height = (maxY - minY) + padding * 2;
+      const blob = await exportToBlob({
+        elements: sketchData.elements,
+        appState: {
+          ...sketchData.appState,
+          scrollX: -minX + padding,
+          scrollY: -minY + padding,
+        },
+        files: null,
+        getDimensions: () => ({ width, height }),
+      });
 
-          const blob = await exportToBlob({
-            elements: sketchData.elements,
-            appState: {
-              ...sketchData.appState,
-              scrollX: -minX + padding,
-              scrollY: -minY + padding,
-            },
-            files: null,
-            getDimensions: () => ({ width, height }),
-          });
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('read failed'));
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob);
+      });
 
-          const dataUrl = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(blob);
-          });
-
-          sketchImageHtml = `
+      return `
             <div class="section full-width">
               <h2>Sketch</h2>
-              <img src="${dataUrl}" style="width: 100%; max-width: 500px; border: 1px solid #ccc; border-radius: 8px;" />
+              <img src="${dataUrl}" alt="Job sketch" style="width: 100%; max-width: 500px; border: 1px solid #ccc; border-radius: 8px;" />
             </div>
           `;
-        }
-      } catch (error) {
-        console.error('Could not generate sketch image for printing:', error);
-      }
+    } catch (error) {
+      console.error('Could not generate sketch image for export:', error);
+      return '';
     }
+  };
 
-    const printContent = `
-      <html>
-        <head>
-          <title>Works Order - Job #${printData.job_number}</title>
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; color: #111; }
-            @page { size: A4; margin: 20mm; }
-            .page { width: 100%; height: 100%; }
-            h1, h2 { margin: 0 0 10px 0; padding: 0; }
-            .header { display: flex; align-items: center; gap: 15px; border-bottom: 2px solid black; padding-bottom: 8px; margin-bottom: 20px; }
-            .header img { height: 32px; width: auto; }
-            .header h1 { font-size: 22pt; margin: 0; }
-            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-            .section { border: 1px solid #ccc; padding: 15px; border-radius: 8px; margin-bottom: 20px; page-break-inside: avoid; }
-            .section h2 { font-size: 14pt; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
-            .details p { margin: 0 0 8px 0; font-size: 11pt; }
-            .details strong { display: inline-block; width: 110px; color: #555; }
-            .full-width { grid-column: 1 / -1; }
-            .description { white-space: pre-wrap; font-size: 11pt; }
-          </style>
-        </head>
-        <body>
-          <div class="page">
-            <div class="header">
-              <img src="${logo}" alt="Projex Logo" />
-              <h1>Works Order: Job #${printData.job_number}</h1>
-            </div>
-            <div class="grid">
-              <div class="section">
-                <h2>Customer Details</h2>
-                <div class="details">
-                  <p><strong>Customer:</strong> ${printData.customer_name}</p>
-                  <p><strong>Company:</strong> ${printData.company || 'N/A'}</p>
-                  <p><strong>Phone:</strong> ${printData.phone_number || 'N/A'}</p>
-                  <p><strong>Email:</strong> ${printData.email || 'N/A'}</p>
-                  <p><strong>Address:</strong> ${printData.address || 'N/A'}</p>
-                </div>
-              </div>
-              <div class="section">
-                <h2>Job Details</h2>
-                <div class="details">
-                  <p><strong>Due Date:</strong> ${printData.due_date || 'N/A'}</p>
-                  <p><strong>Material:</strong> ${printData.material || 'N/A'}</p>
-                  <p><strong>Status:</strong> ${(printData.status || '').replace('_', ' ')}</p>
-                </div>
-              </div>
-              <div class="section full-width">
-                <h2>Job Description</h2>
-                <p class="description">${printData.job_description || 'No description provided.'}</p>
-              </div>
-              ${sketchImageHtml}
-            </div>
-          </div>
-          <script>
-            window.onload = function() {
-              window.print();
-              window.onafterprint = function() {
-                window.close();
-              }
-            }
-          </script>
-        </body>
-      </html>
-    `;
+  const getExportPayload = (): WorksOrderExportData => {
+    const merged = { ...formData, ...job! };
+    return {
+      job_number: merged.job_number,
+      customer_name: merged.customer_name,
+      company: merged.company,
+      phone_number: merged.phone_number,
+      email: merged.email,
+      address: merged.address,
+      due_date: merged.due_date,
+      material: merged.material,
+      status: merged.status,
+      job_description: merged.job_description,
+    };
+  };
 
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(printContent);
-      printWindow.document.close();
-    }
+  const handleDownloadWorksOrderPdf = async () => {
+    if (!job) return;
+    const sketchImageHtml = await buildSketchSectionHtml();
+    const inner = buildWorksOrderInnerHtml(getExportPayload(), sketchImageHtml, logo);
+    await downloadWorksOrderPdf(inner, job.job_number);
+  };
+
+  const handleBrowserPrintWorksOrder = async () => {
+    if (!job) return;
+    const sketchImageHtml = await buildSketchSectionHtml();
+    const inner = buildWorksOrderInnerHtml(getExportPayload(), sketchImageHtml, logo);
+    openWorksOrderBrowserPrint(inner, job.job_number);
   };
 
   const handleSketchSave = (data: string) => {
@@ -250,14 +211,35 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
             {hasUnsavedChanges && <span className="ml-2 text-orange-500 text-sm">• Unsaved changes</span>}
           </h2>
           {job && (
-            <button type="button" onClick={handlePrint} title="Print Works Order" className="p-1 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-700">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-                <path d="M17 17h2a2 2 0 0 0 2 -2v-4a2 2 0 0 0 -2 -2h-14a2 2 0 0 0 -2 2v4a2 2 0 0 0 2 2h2" />
-                <path d="M17 9v-4a2 2 0 0 0 -2 -2h-6a2 2 0 0 0 -2 2v4" />
-                <path d="M7 13m0 2a2 2 0 0 1 2 -2h6a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2z" />
-              </svg>
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={handleDownloadWorksOrderPdf}
+                title="Download works order as PDF (recommended on tablets)"
+                className="p-1 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                  <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+                  <path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" />
+                  <path d="M12 11v6" />
+                  <path d="M9 14l3 3l3 -3" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={handleBrowserPrintWorksOrder}
+                title="Print using the browser (can be unreliable on some Android devices)"
+                className="p-1 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                  <path d="M17 17h2a2 2 0 0 0 2 -2v-4a2 2 0 0 0 -2 -2h-14a2 2 0 0 0 -2 2v4a2 2 0 0 0 2 2h2" />
+                  <path d="M17 9v-4a2 2 0 0 0 -2 -2h-6a2 2 0 0 0 -2 2v4" />
+                  <path d="M7 13m0 2a2 2 0 0 1 2 -2h6a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2z" />
+                </svg>
+              </button>
+            </>
           )}
           <button type="button" onClick={() => setIsSketchPadOpen(true)} title="Open Sketch Pad" className="p-1 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-700">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
