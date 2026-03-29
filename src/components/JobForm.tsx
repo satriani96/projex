@@ -3,7 +3,6 @@ import type { Job, JobFormData, JobStatus } from '../types/job';
 import {
   buildWorksOrderInnerHtml,
   downloadWorksOrderPdf,
-  openWorksOrderBrowserPrint,
   type WorksOrderExportData,
 } from '../utils/worksOrderExport';
 import SketchPadModal from './SketchPadModal';
@@ -140,7 +139,7 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
       });
 
       return `
-            <div class="section full-width">
+            <div class="wo-block wo-span-cols">
               <h2>Sketch</h2>
               <img src="${dataUrl}" alt="Job sketch" style="width: 100%; max-width: 500px; border: 1px solid #ccc; border-radius: 8px;" />
             </div>
@@ -167,18 +166,11 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
     };
   };
 
-  const handleDownloadWorksOrderPdf = async () => {
+  const handlePrintWorksOrder = async () => {
     if (!job) return;
     const sketchImageHtml = await buildSketchSectionHtml();
     const inner = buildWorksOrderInnerHtml(getExportPayload(), sketchImageHtml, logo);
     await downloadWorksOrderPdf(inner, job.job_number);
-  };
-
-  const handleBrowserPrintWorksOrder = async () => {
-    if (!job) return;
-    const sketchImageHtml = await buildSketchSectionHtml();
-    const inner = buildWorksOrderInnerHtml(getExportPayload(), sketchImageHtml, logo);
-    openWorksOrderBrowserPrint(inner, job.job_number);
   };
 
   const handleSketchSave = (data: string) => {
@@ -211,35 +203,19 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
             {hasUnsavedChanges && <span className="ml-2 text-orange-500 text-sm">• Unsaved changes</span>}
           </h2>
           {job && (
-            <>
-              <button
-                type="button"
-                onClick={handleDownloadWorksOrderPdf}
-                title="Download works order as PDF (recommended on tablets)"
-                className="p-1 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-700"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                  <path d="M14 3v4a1 1 0 0 0 1 1h4" />
-                  <path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" />
-                  <path d="M12 11v6" />
-                  <path d="M9 14l3 3l3 -3" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                onClick={handleBrowserPrintWorksOrder}
-                title="Print using the browser (can be unreliable on some Android devices)"
-                className="p-1 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-700"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                  <path d="M17 17h2a2 2 0 0 0 2 -2v-4a2 2 0 0 0 -2 -2h-14a2 2 0 0 0 -2 2v4a2 2 0 0 0 2 2h2" />
-                  <path d="M17 9v-4a2 2 0 0 0 -2 -2h-6a2 2 0 0 0 -2 2v4" />
-                  <path d="M7 13m0 2a2 2 0 0 1 2 -2h6a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2z" />
-                </svg>
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={handlePrintWorksOrder}
+              title="Print works order"
+              className="p-1 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                <path d="M17 17h2a2 2 0 0 0 2 -2v-4a2 2 0 0 0 -2 -2h-14a2 2 0 0 0 -2 2v4a2 2 0 0 0 2 2h2" />
+                <path d="M17 9v-4a2 2 0 0 0 -2 -2h-6a2 2 0 0 0 -2 2v4" />
+                <path d="M7 13m0 2a2 2 0 0 1 2 -2h6a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2z" />
+              </svg>
+            </button>
           )}
           <button type="button" onClick={() => setIsSketchPadOpen(true)} title="Open Sketch Pad" className="p-1 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-700">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
