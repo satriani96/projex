@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import type { Job, JobFormData, JobStatus } from '../types/job';
 import {
   buildWorksOrderInnerHtml,
-  downloadWorksOrderPdf,
+  createWorksOrderPdfBlob,
   type WorksOrderExportData,
 } from '../utils/worksOrderExport';
 import SketchPadModal from './SketchPadModal';
@@ -166,11 +166,36 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
     };
   };
 
-  const handlePrintWorksOrder = async () => {
+  const handlePrintWorksOrder = () => {
     if (!job) return;
-    const sketchImageHtml = await buildSketchSectionHtml();
-    const inner = buildWorksOrderInnerHtml(getExportPayload(), sketchImageHtml, logo);
-    await downloadWorksOrderPdf(inner, job.job_number);
+    const previewTab = window.open('about:blank', '_blank', 'noopener,noreferrer');
+    void (async () => {
+      try {
+        const sketchImageHtml = await buildSketchSectionHtml();
+        const inner = buildWorksOrderInnerHtml(getExportPayload(), sketchImageHtml, logo);
+        const blob = await createWorksOrderPdfBlob(inner, job.job_number);
+        const url = URL.createObjectURL(blob);
+        const safeName = job.job_number.replace(/[^\w.-]+/g, '_');
+        const filename = `Works-Order-Job-${safeName}.pdf`;
+
+        if (previewTab && !previewTab.closed) {
+          previewTab.location.href = url;
+        } else {
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          a.rel = 'noopener';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        }
+
+        window.setTimeout(() => URL.revokeObjectURL(url), 120_000);
+      } catch (err) {
+        previewTab?.close();
+        console.error(err);
+      }
+    })();
   };
 
   const handleSketchSave = (data: string) => {

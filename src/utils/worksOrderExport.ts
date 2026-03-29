@@ -110,7 +110,8 @@ export function buildWorksOrderInnerHtml(
   `;
 }
 
-export async function downloadWorksOrderPdf(innerHtml: string, jobNumber: string): Promise<void> {
+/** PDF bytes for opening in a new tab or triggering download. */
+export async function createWorksOrderPdfBlob(innerHtml: string, jobNumber: string): Promise<Blob> {
   const html2pdf = (await import('html2pdf.js')).default;
 
   // html2canvas often returns a blank image for nodes far off-screen or not yet painted.
@@ -163,7 +164,7 @@ export async function downloadWorksOrderPdf(innerHtml: string, jobNumber: string
       requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
     });
 
-    await html2pdf()
+    const out = await html2pdf()
       .set({
         margin: 10,
         filename,
@@ -181,7 +182,12 @@ export async function downloadWorksOrderPdf(innerHtml: string, jobNumber: string
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       })
       .from(sheet)
-      .save();
+      .outputPdf('blob');
+
+    if (!(out instanceof Blob)) {
+      throw new Error('PDF export did not return a blob');
+    }
+    return out;
   } finally {
     styleEl.remove();
     document.body.removeChild(backdrop);
