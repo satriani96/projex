@@ -24,16 +24,22 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ status, title, jobs, onJobC
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   
-  // Close dropdown when clicking outside
+  // Close dropdown on outside tap (pointer + mouse for Android / desktop)
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+    const closeIfOutside = (target: EventTarget | null) => {
+      if (dropdownRef.current && target instanceof Node && !dropdownRef.current.contains(target)) {
         setIsDropdownOpen(false);
       }
     };
+    const onPointerDown = (event: PointerEvent) => closeIfOutside(event.target);
+    const onMouseDown = (event: MouseEvent) => closeIfOutside(event.target);
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('pointerdown', onPointerDown, true);
+    document.addEventListener('mousedown', onMouseDown, true);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true);
+      document.removeEventListener('mousedown', onMouseDown, true);
+    };
   }, []);
   
   // Toggle sort direction
@@ -56,13 +62,14 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ status, title, jobs, onJobC
   };
 
   return (
-    <div ref={setNodeRef} className="bg-gray-100 p-4 rounded-lg flex flex-col h-full">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-bold text-lg text-gray-700 capitalize">{title.replace('_', ' ')}</h3>
+    <div ref={setNodeRef} className="flex h-full min-h-0 flex-col rounded-lg bg-gray-100 p-4">
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <h3 className="text-lg font-bold capitalize text-gray-700">{title.replace('_', ' ')}</h3>
         <div className="relative" ref={dropdownRef}>
-          <div className="flex items-center space-x-1">
+          <div className="flex items-center gap-1">
             <button 
-              className="text-gray-500 hover:text-gray-700 text-xs font-medium flex items-center py-1 px-2 bg-white rounded border border-gray-200 shadow-sm"
+              type="button"
+              className="flex min-h-10 min-w-0 touch-manipulation items-center rounded border border-gray-200 bg-white px-2 py-2 text-xs font-medium text-gray-500 shadow-sm hover:text-gray-700 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:px-3"
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               title="Change sort field"
             >
@@ -73,8 +80,9 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ status, title, jobs, onJobC
             </button>
             
             <button 
+              type="button"
               onClick={toggleSortDirection}
-              className="text-gray-500 hover:text-gray-700 p-1 rounded bg-white border border-gray-200 shadow-sm"
+              className="flex min-h-10 min-w-10 touch-manipulation items-center justify-center rounded border border-gray-200 bg-white p-2 text-gray-500 shadow-sm hover:text-gray-700 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
               title={sortConfig.direction === 'asc' ? 'Ascending' : 'Descending'}
             >
               {sortConfig.direction === 'asc' ? (
@@ -90,11 +98,12 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ status, title, jobs, onJobC
           </div>
           
           {isDropdownOpen && (
-            <div className="absolute right-0 mt-1 bg-white border border-gray-200 rounded shadow-lg z-10 w-36">
+            <div className="absolute right-0 z-20 mt-1 w-40 rounded border border-gray-200 bg-white shadow-lg">
               <ul>
                 <li>
                   <button 
-                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 ${sortConfig.field === 'job_number' ? 'font-semibold bg-blue-50' : ''}`}
+                    type="button"
+                    className={`w-full touch-manipulation py-3 pl-3 pr-3 text-left text-sm hover:bg-gray-100 [@media(pointer:coarse)]:py-3.5 ${sortConfig.field === 'job_number' ? 'bg-blue-50 font-semibold' : ''}`}
                     onClick={() => changeSortField('job_number')}
                   >
                     Job #
@@ -102,7 +111,8 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ status, title, jobs, onJobC
                 </li>
                 <li>
                   <button 
-                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 ${sortConfig.field === 'customer_name' ? 'font-semibold bg-blue-50' : ''}`}
+                    type="button"
+                    className={`w-full touch-manipulation py-3 pl-3 pr-3 text-left text-sm hover:bg-gray-100 [@media(pointer:coarse)]:py-3.5 ${sortConfig.field === 'customer_name' ? 'bg-blue-50 font-semibold' : ''}`}
                     onClick={() => changeSortField('customer_name')}
                   >
                     Customer
@@ -110,7 +120,8 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ status, title, jobs, onJobC
                 </li>
                 <li>
                   <button 
-                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 ${sortConfig.field === 'due_date' ? 'font-semibold bg-blue-50' : ''}`}
+                    type="button"
+                    className={`w-full touch-manipulation py-3 pl-3 pr-3 text-left text-sm hover:bg-gray-100 [@media(pointer:coarse)]:py-3.5 ${sortConfig.field === 'due_date' ? 'bg-blue-50 font-semibold' : ''}`}
                     onClick={() => changeSortField('due_date')}
                   >
                     Due Date
@@ -123,7 +134,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ status, title, jobs, onJobC
       </div>
       
       <SortableContext id={status} items={jobIds} strategy={verticalListSortingStrategy}>
-        <div className="space-y-3 min-h-[200px] flex-1 overflow-y-auto pr-2">
+        <div className="min-h-[200px] flex-1 touch-pan-y space-y-3 overflow-y-auto overscroll-y-contain pr-1 [-webkit-overflow-scrolling:touch] sm:pr-2">
           {jobs.map(job => (
             <JobCard key={job.id} job={job} onClick={() => onJobClick(job)} cardSize={cardSize} />
           ))}

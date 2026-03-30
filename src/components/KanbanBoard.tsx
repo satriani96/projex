@@ -58,7 +58,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ jobs, onJobClick, cardSize, s
   }, {} as Record<JobStatus, Job[]>);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 h-full">
+    <div className="grid h-full min-h-0 grid-cols-1 gap-4 md:grid-cols-4">
       <SortableContext items={statusOrder} strategy={horizontalListSortingStrategy}>
         {statusOrder.map(status => (
           <KanbanColumn

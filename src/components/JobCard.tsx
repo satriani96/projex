@@ -48,9 +48,10 @@ const JobCard: React.FC<JobCardProps> = ({ job, onClick, cardSize = 'medium' }) 
     >
       <div 
         {...listeners} 
-        className="p-1 bg-gray-100 rounded-t-lg cursor-grab active:cursor-grabbing text-center"
+        aria-label="Drag to move job"
+        className="touch-none select-none rounded-t-lg bg-gray-100 py-2 text-center cursor-grab active:cursor-grabbing [@media(pointer:coarse)]:min-h-12 [@media(pointer:coarse)]:py-3"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline-block text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg xmlns="http://www.w3.org/2000/svg" className="inline-block h-4 w-4 text-gray-400 [@media(pointer:coarse)]:h-5 [@media(pointer:coarse)]:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
         </svg>
       </div>

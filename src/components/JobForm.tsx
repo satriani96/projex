@@ -247,8 +247,8 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
 
   return (
     <form onSubmit={handleSubmit} className="flex min-h-0 max-h-full flex-1 flex-col bg-white rounded-lg">
-      <div className="flex justify-between items-center p-2 border-b flex-shrink-0">
-        <div className="flex items-center space-x-3">
+      <div className="flex flex-shrink-0 items-center justify-between gap-2 border-b p-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
+        <div className="flex min-w-0 items-center gap-1 sm:gap-3">
           <h2 className="text-md font-semibold text-gray-800">
             {job ? `Edit Job #${job.job_number}` : 'Create New Job'}
             {hasUnsavedChanges && <span className="ml-2 text-orange-500 text-sm">• Unsaved changes</span>}
@@ -259,7 +259,7 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
               onClick={handlePrintWorksOrder}
               disabled={isGeneratingPdf}
               title={isGeneratingPdf ? 'Preparing…' : 'Print works order'}
-              className="p-1 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-700 disabled:opacity-40"
+              className="flex min-h-11 min-w-11 touch-manipulation items-center justify-center rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-700 disabled:opacity-40 [@media(pointer:coarse)]:min-h-12 [@media(pointer:coarse)]:min-w-12"
             >
               {isGeneratingPdf ? (
                 <span className="inline-block h-5 w-5 animate-pulse rounded-full bg-gray-300" aria-hidden />
@@ -273,7 +273,7 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
               )}
             </button>
           )}
-          <button type="button" onClick={() => setIsSketchPadOpen(true)} title="Open Sketch Pad" className="p-1 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-700">
+          <button type="button" onClick={() => setIsSketchPadOpen(true)} title="Open Sketch Pad" className="flex min-h-11 min-w-11 touch-manipulation items-center justify-center rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-700 [@media(pointer:coarse)]:min-h-12 [@media(pointer:coarse)]:min-w-12">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
               <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
               <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
@@ -287,7 +287,7 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
               type="button" 
               onClick={handleArchive} 
               title="Archive Job"
-              className="p-1 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+              className="flex min-h-11 min-w-11 touch-manipulation items-center justify-center rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-700 [@media(pointer:coarse)]:min-h-12 [@media(pointer:coarse)]:min-w-12"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
                 <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
@@ -306,7 +306,7 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
                 }
               }} 
               title="Delete Job"
-              className="p-1 rounded-full text-red-500 hover:bg-red-50 hover:text-red-700"
+              className="flex min-h-11 min-w-11 touch-manipulation items-center justify-center rounded-full text-red-500 hover:bg-red-50 hover:text-red-700 [@media(pointer:coarse)]:min-h-12 [@media(pointer:coarse)]:min-w-12"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
                 <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
@@ -319,12 +319,12 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
             </button>
           )}
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           {/* Save Button as Tick Icon */}
           <button 
             type="submit" 
             title={hasUnsavedChanges ? 'Save changes' : 'No changes to save'}
-            className={`p-1 rounded-full ${hasUnsavedChanges 
+            className={`flex min-h-11 min-w-11 touch-manipulation items-center justify-center rounded-full [@media(pointer:coarse)]:min-h-12 [@media(pointer:coarse)]:min-w-12 ${hasUnsavedChanges 
               ? 'text-orange-600 hover:bg-orange-50 hover:text-orange-700' 
               : 'text-green-600 hover:bg-green-50 hover:text-green-700'}`}
           >
@@ -333,7 +333,7 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
             </svg>
           </button>
           {/* Close Button */}
-          <button type="button" onClick={handleCancel} className="p-1 rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600">
+          <button type="button" onClick={handleCancel} className="flex min-h-11 min-w-11 touch-manipulation items-center justify-center rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600 [@media(pointer:coarse)]:min-h-12 [@media(pointer:coarse)]:min-w-12">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -342,7 +342,7 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
       </div>
 
       <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
-        <div className="p-6">
+        <div className="p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-6 [&_input:not([type=hidden]):not([readonly])]:min-h-11 [&_input:not([type=hidden]):not([readonly])]:text-base [&_select]:min-h-11 [&_select]:text-base [&_textarea]:min-h-[5.5rem] [&_textarea]:text-base md:[&_input:not([type=hidden]):not([readonly])]:min-h-0 md:[&_input:not([type=hidden]):not([readonly])]:text-sm md:[&_select]:min-h-0 md:[&_select]:text-sm md:[&_textarea]:text-sm">
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                 {/* Job Number */}
@@ -420,52 +420,57 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
 
       {pdfPreview && (
         <div
-          className="fixed inset-0 z-[100] flex flex-col bg-black/50"
+          className="fixed inset-0 z-[100] flex flex-col bg-black/50 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
           role="dialog"
           aria-label="Works order PDF preview"
           onClick={(e) => {
             if (e.target === e.currentTarget) closePdfPreview();
           }}
         >
-          <div className="flex min-h-0 flex-1 flex-col bg-white shadow-xl m-2 rounded-lg overflow-hidden md:m-4 md:max-h-[calc(100vh-2rem)] md:mx-auto md:w-[min(100%-2rem,56rem)]">
-            <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-gray-50 px-3 py-2">
+          <div className="mx-2 my-2 flex min-h-0 max-h-[calc(100dvh-1rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] flex-1 flex-col overflow-hidden rounded-lg bg-white shadow-xl md:mx-auto md:my-4 md:max-h-[min(90dvh,calc(100dvh-2rem))] md:w-[min(100%-2rem,56rem)]">
+            <div className="flex flex-shrink-0 flex-col gap-2 border-b border-gray-200 bg-gray-50 px-3 py-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <span className="min-w-0 truncate text-sm font-medium text-gray-800">{pdfPreview.filename}</span>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700 hover:bg-gray-100"
-                  onClick={() => window.open(pdfPreview.url, '_blank', 'noopener,noreferrer')}
-                >
-                  Open in new tab
-                </button>
+              <div className="flex flex-wrap items-stretch gap-2 sm:justify-end">
                 <a
                   href={pdfPreview.url}
                   download={pdfPreview.filename}
-                  className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700 hover:bg-gray-100"
+                  className="flex min-h-11 flex-1 touch-manipulation items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-2 text-center text-sm font-medium text-gray-800 hover:bg-gray-100 sm:flex-initial [@media(pointer:coarse)]:min-h-12"
                 >
                   Download
                 </a>
                 <button
                   type="button"
-                  className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700 hover:bg-gray-100"
+                  className="min-h-11 touch-manipulation rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-100 [@media(pointer:coarse)]:min-h-12 [@media(pointer:coarse)]:flex-1"
+                  onClick={() => window.open(pdfPreview.url, '_blank', 'noopener,noreferrer')}
+                >
+                  Open in new tab
+                </button>
+                <button
+                  type="button"
+                  className="min-h-11 touch-manipulation rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-100 [@media(pointer:coarse)]:min-h-12"
                   onClick={() => pdfIframeRef.current?.contentWindow?.print()}
                 >
                   Print
                 </button>
                 <button
                   type="button"
-                  className="rounded-md bg-blue-600 px-2 py-1 text-sm text-white hover:bg-blue-700"
+                  className="min-h-11 touch-manipulation rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 [@media(pointer:coarse)]:min-h-12"
                   onClick={closePdfPreview}
                 >
                   Close
                 </button>
               </div>
+              </div>
+              <p className="hidden text-xs leading-snug text-gray-500 [@media(pointer:coarse)]:block">
+                If the preview is blank, use Download or Open in new tab.
+              </p>
             </div>
             <iframe
               ref={pdfIframeRef}
               src={pdfPreview.url}
               title="Works order PDF"
-              className="min-h-0 flex-1 w-full border-0 bg-gray-100"
+              className="min-h-0 w-full flex-1 touch-pan-y border-0 bg-gray-100"
             />
           </div>
         </div>

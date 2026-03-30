@@ -125,8 +125,12 @@ export async function createWorksOrderPdfBlob(innerHtml: string, jobNumber: stri
     'display:flex',
     'flex-direction:column',
     'align-items:center',
-    'padding:16px',
+    'padding-top:max(16px, env(safe-area-inset-top))',
+    'padding-bottom:max(16px, env(safe-area-inset-bottom))',
+    'padding-left:max(16px, env(safe-area-inset-left))',
+    'padding-right:max(16px, env(safe-area-inset-right))',
     'overflow:auto',
+    'touch-action:pan-y',
     'background:rgba(255,255,255,0.96)',
   ].join(';');
 

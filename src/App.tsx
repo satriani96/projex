@@ -122,10 +122,10 @@ function App() {
       },
     }),
     useSensor(TouchSensor, {
-      // Press delay of 250ms, with tolerance of 5px of movement
+      // Slightly shorter delay + more slop helps tablets; still avoids scroll-vs-drag fights
       activationConstraint: {
-        delay: 250,
-        tolerance: 5,
+        delay: 200,
+        tolerance: 12,
       },
     })
   );
@@ -251,47 +251,52 @@ function App() {
   };
 
   return (
-    <div className="h-screen bg-gray-50 text-gray-800 flex flex-col">
-            <header className="flex flex-col gap-3 p-4 bg-white border-b border-gray-200 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+    <div className="flex min-h-dvh flex-col bg-gray-50 text-gray-800">
+            <header className="flex flex-col gap-3 border-b border-gray-200 bg-white p-4 pt-[max(1rem,env(safe-area-inset-top))] lg:flex-row lg:items-center lg:justify-between lg:gap-4">
         <div className="flex min-w-0 items-center justify-between gap-3 lg:contents">
         <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
           <img src={logo} alt="Projex Logo" className="h-8 w-auto shrink-0" />
           <h1 className="text-2xl font-bold text-gray-900 shrink-0">Projex</h1>
           
-          <div className="flex rounded-md overflow-hidden border border-gray-300 sm:ml-2 lg:ml-4">
+          <div className="flex min-h-11 overflow-hidden rounded-md border border-gray-300 sm:ml-2 lg:ml-4 [@media(pointer:coarse)]:min-h-12">
             <button 
+              type="button"
               onClick={() => setViewMode('kanban')} 
-              className={`px-3 py-1 text-sm ${viewMode === 'kanban' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+              className={`touch-manipulation px-3 py-2 text-sm [@media(pointer:coarse)]:px-4 [@media(pointer:coarse)]:py-2.5 ${viewMode === 'kanban' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
             >
               Kanban
             </button>
             <button 
+              type="button"
               onClick={() => setViewMode('gantt')} 
-              className={`px-3 py-1 text-sm ${viewMode === 'gantt' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+              className={`touch-manipulation px-3 py-2 text-sm [@media(pointer:coarse)]:px-4 [@media(pointer:coarse)]:py-2.5 ${viewMode === 'gantt' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
             >
               Gantt
             </button>
           </div>
           
           {viewMode === 'kanban' && (
-            <div className="flex rounded-md overflow-hidden border border-gray-300 sm:ml-2 lg:ml-4">
+            <div className="flex min-h-11 overflow-hidden rounded-md border border-gray-300 sm:ml-2 lg:ml-4 [@media(pointer:coarse)]:min-h-12">
               <button 
+                type="button"
                 onClick={() => setCardSize('compact')} 
-                className={`px-3 py-1 text-sm ${cardSize === 'compact' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                className={`touch-manipulation min-w-11 px-3 py-2 text-sm [@media(pointer:coarse)]:min-w-12 ${cardSize === 'compact' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
                 title="Compact View"
               >
                 <span className="text-xs">S</span>
               </button>
               <button 
+                type="button"
                 onClick={() => setCardSize('medium')} 
-                className={`px-3 py-1 text-sm ${cardSize === 'medium' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                className={`touch-manipulation min-w-11 px-3 py-2 text-sm [@media(pointer:coarse)]:min-w-12 ${cardSize === 'medium' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
                 title="Medium View"
               >
                 <span className="text-xs">M</span>
               </button>
               <button 
+                type="button"
                 onClick={() => setCardSize('large')} 
-                className={`px-3 py-1 text-sm ${cardSize === 'large' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                className={`touch-manipulation min-w-11 px-3 py-2 text-sm [@media(pointer:coarse)]:min-w-12 ${cardSize === 'large' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
                 title="Large View"
               >
                 <span className="text-xs">L</span>
@@ -302,8 +307,9 @@ function App() {
         <div className="flex shrink-0 items-center gap-2">
         {/* Archive Button */}
         <button 
+          type="button"
           onClick={() => setIsArchiveModalOpen(true)}
-          className="p-1.5 rounded-md text-gray-500 hover:bg-gray-200 hover:text-gray-700 flex items-center"
+          className="flex min-h-11 min-w-11 touch-manipulation items-center justify-center rounded-md p-2 text-gray-500 hover:bg-gray-200 hover:text-gray-700 [@media(pointer:coarse)]:min-h-12 [@media(pointer:coarse)]:min-w-12"
           title="View Archived Jobs"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
@@ -314,8 +320,9 @@ function App() {
           </svg>
         </button>
         <button 
+          type="button"
           onClick={handleNewJobClick}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+          className="touch-manipulation rounded-md bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700 [@media(pointer:coarse)]:min-h-12 [@media(pointer:coarse)]:px-5"
         >
           + New Job
         </button>
@@ -323,15 +330,17 @@ function App() {
         </div>
         <div className="w-full min-w-0 lg:flex-1 lg:max-w-md">
           <input
-            type="text"
+            type="search"
+            enterKeyHint="search"
+            autoComplete="off"
             placeholder="Search by customer or job #..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full min-w-0 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full min-w-0 rounded-md border border-gray-300 px-4 py-2.5 text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 lg:py-2 lg:text-sm"
           />
         </div>
       </header>
-      <main className="p-4 flex-1 overflow-y-auto relative">
+      <main className="relative flex-1 touch-pan-y overflow-y-auto overscroll-y-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch]">
         {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">{error}</div>}
         {isLoading ? (
           <div className="text-center text-gray-500">Loading jobs...</div>
@@ -366,9 +375,9 @@ function App() {
 
         {isFormVisible && (
           <div 
-            className="fixed inset-0 bg-black/20 backdrop-blur-sm flex justify-center items-center z-50 p-4 overflow-y-auto overscroll-contain"
+            className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/20 p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-sm"
           >
-            <div className="my-auto flex max-h-[min(90vh,100dvh-2rem)] min-h-0 w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
+            <div className="my-auto flex max-h-[min(90vh,calc(100dvh-2rem))] min-h-0 w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
               <JobForm
                 job={selectedJob}
                 onSubmit={handleFormSubmit}

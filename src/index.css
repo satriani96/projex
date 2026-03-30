@@ -1,1 +1,12 @@
 @import "tailwindcss";
+
+/* Android / tablet: less tap delay, subtler tap highlight */
+html {
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0.06);
+}
+
+@media (pointer: coarse) {
+  html {
+    touch-action: manipulation;
+  }
+}
