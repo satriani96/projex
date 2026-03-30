@@ -87,7 +87,7 @@ function App() {
   const fetchJobs = useCallback(async () => {
     try {
       const fetchedJobs = await getJobs();
-      setJobs(fetchedJobs || []);
+      setJobs((fetchedJobs || []).filter((job): job is Job => Boolean(job)));
     } catch (err) {
       setError('Failed to fetch jobs.');
       console.error(err);
@@ -98,20 +98,37 @@ function App() {
 
   useEffect(() => {
     fetchJobs();
-    }, [fetchJobs]);
+  }, [fetchJobs]);
+
+  const toLowerCaseSafe = useCallback((value: unknown) => {
+    if (value == null) {
+      return '';
+    }
+
+    if (typeof value === 'string') {
+      return value.toLowerCase();
+    }
+
+    return String(value).toLowerCase();
+  }, []);
 
   const filteredJobs = useMemo(() => {
     if (!searchQuery) {
       return jobs;
     }
-        return jobs.filter(job => {
-      const query = searchQuery.toLowerCase();
+
+    const query = toLowerCaseSafe(searchQuery);
+
+    return jobs.filter((job): job is Job => Boolean(job)).filter(job => {
+      const customerName = toLowerCaseSafe(job?.customer_name);
+      const jobNumber = toLowerCaseSafe(job?.job_number);
+
       return (
-        job.customer_name.toLowerCase().includes(query) ||
-        job.job_number.includes(query) // Job number is a string, so 'includes' works well.
+        customerName.includes(query) ||
+        jobNumber.includes(query)
       );
     });
-  }, [jobs, searchQuery]);
+  }, [jobs, searchQuery, toLowerCaseSafe]);
   
   // Configure DND sensors at the top level to avoid React hooks rules violation
   const sensors = useSensors(
@@ -140,7 +157,7 @@ function App() {
     setIsFormVisible(true);
   };
 
-    const handleSketchSave = async (jobId: string, sketchData: string) => {
+  const handleSketchSave = async (jobId: string, sketchData: string) => {
     try {
       await updateJob(jobId, { sketch_data: sketchData });
       fetchJobs(); // Refresh data to ensure consistency
@@ -168,7 +185,7 @@ function App() {
     }
   };
 
-    const handleFormSubmit = async (formData: JobFormData) => {
+  const handleFormSubmit = async (formData: JobFormData) => {
     try {
       if (selectedJob) {
         await updateJob(selectedJob.id, formData);
@@ -184,7 +201,7 @@ function App() {
     }
   };
 
-    const handleDragStart = (event: DragStartEvent) => {
+  const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
     const job = jobs.find(j => String(j.id) === String(active.id));
     if (job) {
@@ -208,22 +225,22 @@ function App() {
         return prevJobs;
       }
 
+      const previousJobs = prevJobs;
       const newJobs = prevJobs.map(job =>
         String(job.id) === activeId ? { ...job, status: newStatus } : job
       );
 
-      // Asynchronously update the backend
-      (async () => {
-        const result = await updateJob(activeId, { status: newStatus });
-        // The service now returns an object with a potential error property
-        if (result && 'error' in result) {
-          setError(`Failed to move job: ${(result.error as any).message || 'Unknown error'}`);
-          // Revert to the original state if the backend update fails
-          setJobs(prevJobs);
+      void (async () => {
+        try {
+          await updateJob(activeId, { status: newStatus });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Unknown error';
+          setError(`Failed to move job: ${message}`);
+          setJobs(previousJobs);
         }
       })();
 
-            return newJobs;
+      return newJobs;
     });
 
     setActiveJob(null);

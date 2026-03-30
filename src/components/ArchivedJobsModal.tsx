@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Job } from '../types/job';
 import { getArchivedJobs, updateJob } from '../services/jobService';
 
@@ -25,7 +25,7 @@ const ArchivedJobsModal: React.FC<ArchivedJobsModalProps> = ({ isOpen, onClose, 
     setError(null);
     try {
       const jobs = await getArchivedJobs();
-      setArchivedJobs(jobs);
+      setArchivedJobs((jobs || []).filter((job): job is Job => Boolean(job)));
     } catch (err) {
       setError('Failed to fetch archived jobs.');
       console.error(err);
@@ -47,15 +47,41 @@ const ArchivedJobsModal: React.FC<ArchivedJobsModalProps> = ({ isOpen, onClose, 
     }
   };
 
-  const filteredJobs = archivedJobs.filter(job => {
-    const query = searchQuery.toLowerCase();
-    return (
-      job.job_number.toLowerCase().includes(query) ||
-      job.customer_name.toLowerCase().includes(query) ||
-      job.company?.toLowerCase().includes(query) ||
-      job.material?.toLowerCase().includes(query)
-    );
-  });
+  const toLowerCaseSafe = useCallback((value: unknown) => {
+    if (value == null) {
+      return '';
+    }
+
+    if (typeof value === 'string') {
+      return value.toLowerCase();
+    }
+
+    return String(value).toLowerCase();
+  }, []);
+
+  const filteredJobs = useMemo(() => {
+    const normalizedQuery = toLowerCaseSafe(searchQuery).trim();
+
+    const includesQuery = (value: unknown) => toLowerCaseSafe(value).includes(normalizedQuery);
+
+    return archivedJobs.filter((job): job is Job => Boolean(job)).reduce<Job[]>((acc, job) => {
+      if (!normalizedQuery) {
+        acc.push(job);
+        return acc;
+      }
+
+      if (
+        includesQuery(job?.job_number) ||
+        includesQuery(job?.customer_name) ||
+        includesQuery(job?.company) ||
+        includesQuery(job?.material)
+      ) {
+        acc.push(job);
+      }
+
+      return acc;
+    }, []);
+  }, [archivedJobs, searchQuery, toLowerCaseSafe]);
 
   if (!isOpen) return null;
 
