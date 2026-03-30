@@ -168,18 +168,41 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
 
   const handlePrintWorksOrder = () => {
     if (!job) return;
-    const previewTab = window.open('about:blank', '_blank', 'noopener,noreferrer');
+    // Do not use noopener here: the opener must be able to navigate the tab or
+    // inject the PDF viewer; with noopener many browsers leave the tab on about:blank.
+    const previewTab = window.open('about:blank', '_blank');
+
     void (async () => {
+      const safeName = job.job_number.replace(/[^\w.-]+/g, '_');
+      const filename = `Works-Order-Job-${safeName}.pdf`;
+
       try {
         const sketchImageHtml = await buildSketchSectionHtml();
         const inner = buildWorksOrderInnerHtml(getExportPayload(), sketchImageHtml, logo);
-        const blob = await createWorksOrderPdfBlob(inner, job.job_number);
+        let blob = await createWorksOrderPdfBlob(inner, job.job_number);
+        if (!blob.type || blob.type === 'application/octet-stream') {
+          blob = new Blob([blob], { type: 'application/pdf' });
+        }
         const url = URL.createObjectURL(blob);
-        const safeName = job.job_number.replace(/[^\w.-]+/g, '_');
-        const filename = `Works-Order-Job-${safeName}.pdf`;
 
         if (previewTab && !previewTab.closed) {
-          previewTab.location.href = url;
+          try {
+            const doc = previewTab.document;
+            doc.open();
+            doc.write(
+              '<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Works order</title>' +
+                '<style>html,body{margin:0;height:100%;overflow:hidden}embed,object{width:100%;height:100%;display:block}</style>' +
+                '</head><body></body></html>'
+            );
+            doc.close();
+            const embed = doc.createElement('embed');
+            embed.type = 'application/pdf';
+            embed.src = url;
+            embed.title = filename;
+            doc.body.appendChild(embed);
+          } catch {
+            previewTab.location.replace(url);
+          }
         } else {
           const a = document.createElement('a');
           a.href = url;
@@ -192,8 +215,19 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
 
         window.setTimeout(() => URL.revokeObjectURL(url), 120_000);
       } catch (err) {
-        previewTab?.close();
         console.error(err);
+        if (previewTab && !previewTab.closed) {
+          try {
+            const doc = previewTab.document;
+            doc.open();
+            doc.write(
+              '<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Error</title></head><body><p>Could not generate the works order PDF. Please try again.</p></body></html>'
+            );
+            doc.close();
+          } catch {
+            previewTab.close();
+          }
+        }
       }
     })();
   };
