@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { Job, JobFormData, JobStatus } from '../types/job';
 import {
   buildWorksOrderInnerHtml,
@@ -26,7 +26,11 @@ const statusOptions: JobStatus[] = ['queued', 'in_progress', 'on_hold', 'done', 
 const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave, onDelete }) => {
   const [isSketchPadOpen, setIsSketchPadOpen] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [pdfPreview, setPdfPreview] = useState<{ url: string; filename: string } | null>(null);
   const originalFormDataRef = useRef<JobFormData | null>(null);
+  const pdfIframeRef = useRef<HTMLIFrameElement>(null);
+  const activePdfObjectUrlRef = useRef<string | null>(null);
   
   const [formData, setFormData] = useState<JobFormData>({
     customer_name: job?.customer_name || '',
@@ -71,6 +75,32 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
     const hasChanges = JSON.stringify(formData) !== JSON.stringify(originalFormDataRef.current);
     setHasUnsavedChanges(hasChanges);
   }, [formData]);
+
+  const closePdfPreview = useCallback(() => {
+    if (activePdfObjectUrlRef.current) {
+      URL.revokeObjectURL(activePdfObjectUrlRef.current);
+      activePdfObjectUrlRef.current = null;
+    }
+    setPdfPreview(null);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (activePdfObjectUrlRef.current) {
+        URL.revokeObjectURL(activePdfObjectUrlRef.current);
+        activePdfObjectUrlRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!pdfPreview) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closePdfPreview();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [pdfPreview, closePdfPreview]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -168,14 +198,10 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
 
   const handlePrintWorksOrder = () => {
     if (!job) return;
-    // Do not use noopener here: the opener must be able to navigate the tab or
-    // inject the PDF viewer; with noopener many browsers leave the tab on about:blank.
-    const previewTab = window.open('about:blank', '_blank');
-
     void (async () => {
+      setIsGeneratingPdf(true);
       const safeName = job.job_number.replace(/[^\w.-]+/g, '_');
       const filename = `Works-Order-Job-${safeName}.pdf`;
-
       try {
         const sketchImageHtml = await buildSketchSectionHtml();
         const inner = buildWorksOrderInnerHtml(getExportPayload(), sketchImageHtml, logo);
@@ -184,50 +210,16 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
           blob = new Blob([blob], { type: 'application/pdf' });
         }
         const url = URL.createObjectURL(blob);
-
-        if (previewTab && !previewTab.closed) {
-          try {
-            const doc = previewTab.document;
-            doc.open();
-            doc.write(
-              '<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Works order</title>' +
-                '<style>html,body{margin:0;height:100%;overflow:hidden}embed,object{width:100%;height:100%;display:block}</style>' +
-                '</head><body></body></html>'
-            );
-            doc.close();
-            const embed = doc.createElement('embed');
-            embed.type = 'application/pdf';
-            embed.src = url;
-            embed.title = filename;
-            doc.body.appendChild(embed);
-          } catch {
-            previewTab.location.replace(url);
-          }
-        } else {
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = filename;
-          a.rel = 'noopener';
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
+        if (activePdfObjectUrlRef.current) {
+          URL.revokeObjectURL(activePdfObjectUrlRef.current);
         }
-
-        window.setTimeout(() => URL.revokeObjectURL(url), 120_000);
+        activePdfObjectUrlRef.current = url;
+        setPdfPreview({ url, filename });
       } catch (err) {
         console.error(err);
-        if (previewTab && !previewTab.closed) {
-          try {
-            const doc = previewTab.document;
-            doc.open();
-            doc.write(
-              '<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Error</title></head><body><p>Could not generate the works order PDF. Please try again.</p></body></html>'
-            );
-            doc.close();
-          } catch {
-            previewTab.close();
-          }
-        }
+        window.alert('Could not generate the works order PDF. Please try again.');
+      } finally {
+        setIsGeneratingPdf(false);
       }
     })();
   };
@@ -265,15 +257,20 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
             <button
               type="button"
               onClick={handlePrintWorksOrder}
-              title="Print works order"
-              className="p-1 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+              disabled={isGeneratingPdf}
+              title={isGeneratingPdf ? 'Preparing…' : 'Print works order'}
+              className="p-1 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-700 disabled:opacity-40"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                <path d="M17 17h2a2 2 0 0 0 2 -2v-4a2 2 0 0 0 -2 -2h-14a2 2 0 0 0 -2 2v4a2 2 0 0 0 2 2h2" />
-                <path d="M17 9v-4a2 2 0 0 0 -2 -2h-6a2 2 0 0 0 -2 2v4" />
-                <path d="M7 13m0 2a2 2 0 0 1 2 -2h6a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2z" />
-              </svg>
+              {isGeneratingPdf ? (
+                <span className="inline-block h-5 w-5 animate-pulse rounded-full bg-gray-300" aria-hidden />
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                  <path d="M17 17h2a2 2 0 0 0 2 -2v-4a2 2 0 0 0 -2 -2h-14a2 2 0 0 0 -2 2v4a2 2 0 0 0 2 2h2" />
+                  <path d="M17 9v-4a2 2 0 0 0 -2 -2h-6a2 2 0 0 0 -2 2v4" />
+                  <path d="M7 13m0 2a2 2 0 0 1 2 -2h6a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2z" />
+                </svg>
+              )}
             </button>
           )}
           <button type="button" onClick={() => setIsSketchPadOpen(true)} title="Open Sketch Pad" className="p-1 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-700">
@@ -420,6 +417,59 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
       {/* Modal Footer - Save button moved to header */}
       <div className="flex-shrink-0 h-2 bg-gray-50 rounded-b-lg">
       </div>
+
+      {pdfPreview && (
+        <div
+          className="fixed inset-0 z-[100] flex flex-col bg-black/50"
+          role="dialog"
+          aria-label="Works order PDF preview"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closePdfPreview();
+          }}
+        >
+          <div className="flex min-h-0 flex-1 flex-col bg-white shadow-xl m-2 rounded-lg overflow-hidden md:m-4 md:max-h-[calc(100vh-2rem)] md:mx-auto md:w-[min(100%-2rem,56rem)]">
+            <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-gray-50 px-3 py-2">
+              <span className="min-w-0 truncate text-sm font-medium text-gray-800">{pdfPreview.filename}</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700 hover:bg-gray-100"
+                  onClick={() => window.open(pdfPreview.url, '_blank', 'noopener,noreferrer')}
+                >
+                  Open in new tab
+                </button>
+                <a
+                  href={pdfPreview.url}
+                  download={pdfPreview.filename}
+                  className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700 hover:bg-gray-100"
+                >
+                  Download
+                </a>
+                <button
+                  type="button"
+                  className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700 hover:bg-gray-100"
+                  onClick={() => pdfIframeRef.current?.contentWindow?.print()}
+                >
+                  Print
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md bg-blue-600 px-2 py-1 text-sm text-white hover:bg-blue-700"
+                  onClick={closePdfPreview}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            <iframe
+              ref={pdfIframeRef}
+              src={pdfPreview.url}
+              title="Works order PDF"
+              className="min-h-0 flex-1 w-full border-0 bg-gray-100"
+            />
+          </div>
+        </div>
+      )}
 
       <SketchPadModal
         isOpen={isSketchPadOpen}
