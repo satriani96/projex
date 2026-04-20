@@ -300,11 +300,11 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel, onSketchSave
           {job && onDelete && (
             <button 
               type="button" 
-              onClick={() => {
-                if (window.confirm('Are you sure you want to delete this job? This action cannot be undone.')) {
-                  job.id && onDelete(job.id);
-                }
-              }} 
+                onClick={() => {
+                  if (window.confirm('Are you sure you want to delete this job? This action cannot be undone.') && job.id) {
+                    onDelete(job.id);
+                  }
+                }}
               title="Delete Job"
               className="flex min-h-11 min-w-11 touch-manipulation items-center justify-center rounded-full text-red-500 hover:bg-red-50 hover:text-red-700 [@media(pointer:coarse)]:min-h-12 [@media(pointer:coarse)]:min-w-12"
             >

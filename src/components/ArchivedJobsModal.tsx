@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Job } from '../types/job';
 import { getArchivedJobs, updateJob } from '../services/jobService';
 
@@ -14,25 +14,47 @@ const ArchivedJobsModal: React.FC<ArchivedJobsModalProps> = ({ isOpen, onClose, 
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchArchivedJobs();
+  const sanitizeJob = useCallback((job: Partial<Job> | null | undefined): Job | null => {
+    if (!job) {
+      return null;
     }
-  }, [isOpen]);
 
-  const fetchArchivedJobs = async () => {
+    return {
+      ...job,
+      job_number: job.job_number ?? '',
+      customer_name: job.customer_name ?? '',
+      company: job.company ?? '',
+      address: job.address ?? '',
+      phone_number: job.phone_number ?? '',
+      email: job.email ?? '',
+      material: job.material ?? '',
+      job_description: job.job_description ?? '',
+    } as Job;
+  }, []);
+
+  const fetchArchivedJobs = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
       const jobs = await getArchivedJobs();
-      setArchivedJobs(jobs);
+      setArchivedJobs(
+        (jobs || [])
+          .map(sanitizeJob)
+          .filter((job): job is Job => Boolean(job))
+      );
     } catch (err) {
       setError('Failed to fetch archived jobs.');
       console.error(err);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [sanitizeJob]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchArchivedJobs();
+    }
+  }, [fetchArchivedJobs, isOpen]);
 
   const handleRestore = async (job: Job) => {
     if (window.confirm(`Restore job #${job.job_number} to active status?`)) {
@@ -47,15 +69,31 @@ const ArchivedJobsModal: React.FC<ArchivedJobsModalProps> = ({ isOpen, onClose, 
     }
   };
 
-  const filteredJobs = archivedJobs.filter(job => {
-    const query = searchQuery.toLowerCase();
-    return (
-      job.job_number.toLowerCase().includes(query) ||
-      job.customer_name.toLowerCase().includes(query) ||
-      job.company?.toLowerCase().includes(query) ||
-      job.material?.toLowerCase().includes(query)
-    );
-  });
+  const toLowerCaseSafe = useCallback((value: unknown) => String(value ?? '').toLowerCase(), []);
+
+  const filteredJobs = useMemo(() => {
+    const normalizedQuery = toLowerCaseSafe(searchQuery).trim();
+
+    const includesQuery = (value: unknown) => toLowerCaseSafe(value).includes(normalizedQuery);
+
+    return archivedJobs.filter((job): job is Job => Boolean(job)).reduce<Job[]>((acc, job) => {
+      if (!normalizedQuery) {
+        acc.push(job);
+        return acc;
+      }
+
+      if (
+        includesQuery(job?.job_number) ||
+        includesQuery(job?.customer_name) ||
+        includesQuery(job?.company) ||
+        includesQuery(job?.material)
+      ) {
+        acc.push(job);
+      }
+
+      return acc;
+    }, []);
+  }, [archivedJobs, searchQuery, toLowerCaseSafe]);
 
   if (!isOpen) return null;
 
